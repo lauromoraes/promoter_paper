@@ -240,7 +240,7 @@ class SequenceNucHotvector(BaseData):
         self.set_data()
 
     def enconde_seq(self, seq):
-        convHot = lambda x : self.NUC_HOT_VECTOR[nuc]
+        convHot = lambda x : self.NUC_HOT_VECTOR[x]
         return np.hstack([ convHot(nuc) for nuc in seq ]).reshape(1, 4, len(seq), 1)
     
     def encode_sequences(self, seqs):
