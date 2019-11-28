@@ -317,7 +317,7 @@ if __name__ == "__main__":
     MEAN_MCC = '{:05d}'.format(int(np.mean(results['mcc']) * 10000))
     STD_MCC = '{:05d}'.format(int(np.std(results['mcc']) * 10000))
     MODEL_TYPE = args.model
-    out_file_name = f'{TIMESTAMP}_{MODEL_TYPE}_mcc-{MEAN_MCC}-{STD_MCC}'
+    out_file_name = '{}_{}_mcc-{}-{}'.format(TIMESTAMP, MODEL_TYPE, MEAN_MCC, STD_MCC)
 
     # Write experiment INFO to CSV and JSON
     df = pd.DataFrame(results, columns=headers)
