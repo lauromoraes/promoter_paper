@@ -3,6 +3,35 @@ from matplotlib import pyplot as plt
 import csv
 import math
 
+def get_args():
+    # setting the hyper parameters
+    import os
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', default='CNN_01')
+    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--n_class', default=1, type=int)
+    parser.add_argument('--epochs', default=300, type=int)
+    parser.add_argument('--cv', default=2, type=int)
+    parser.add_argument('--patience', default=5, type=int)
+    parser.add_argument('--lr', default=0.001, type=float, help="Initial learning rate")
+    parser.add_argument('--lr_decay', default=0.9, type=float,
+                        help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
+
+
+    #    parser.add_argument('--shift_fraction', default=0.0, type=float, help="Fraction of pixels to shift at most in each direction.")
+    parser.add_argument('--debug', default=1, type=int)  # debug>0 will save weights by TensorBoard
+    parser.add_argument('--weights_dir', default=os.path.join('.', 'weights'))
+    parser.add_argument('--results_dir', default=os.path.join('.', 'results'))
+    parser.add_argument('--is_training', default=1, type=int, help="Size of embedding vector. Should > 0.")
+    parser.add_argument('--weights', default=None)
+    parser.add_argument('-o', '--organism', default=None,
+                        help="The organism used for test. Generate auto path for fasta files. Should be specified when testing")
+
+    args = parser.parse_args()
+    return args
+
 def plot_log(filename, show=True):
     # load data
     keys = []
@@ -57,8 +86,8 @@ def combine_images(generated_images):
             img[:, :, 0]
     return image
 
-if __name__=="__main__":
-    plot_log('result/log.csv')
+# if __name__=="__main__":
+#     plot_log('result/log.csv')
 
 
 

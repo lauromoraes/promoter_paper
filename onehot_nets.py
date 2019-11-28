@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 """
-Keras implementation of ConvNet in Hinton's paper Dynamic Routing Between Capsules.
 
 Usage:
-       python ConvNet.py
-       python ConvNet.py --epochs 100
-       python ConvNet.py --epochs 100 --num_routing 3
+
        ... ...
 
     
@@ -28,21 +25,27 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from metrics import margin_loss
 
 headers = ['partition', 'mcc', 'f1', 'sn', 'sp', 'acc', 'prec', 'tp', 'fp', 'tn', 'fn']
-results = {'partition': [], 'mcc': [], 'f1': [], 'sn': [], 'sp': [], 'acc': [], 'prec': [], 'tp': [], 'fp': [],
-           'tn': [], 'fn': []}
+results = {x: [] for x in headers}
+# results = {'partition': [], 'mcc': [], 'f1': [], 'sn': [], 'sp': [], 'acc': [], 'prec': [], 'tp': [], 'fp': [],
+#            'tn': [], 'fn': []}
 
-max_features = 79
-maxlen = 16
-prefix_name = ''
 
 def create_classifier(classifier_name, input_shape, n_class, verbose=False):
-    model = None
-    if classifier_name == 'CNN01':
-        from mymodels import cnn
-        model = cnn.CNN01(input_shape, n_class)
+    from mymodels import cnn
+    if classifier_name == 'HOTCNN01':
+        classifier = cnn.HOTCNN01(input_shape, n_class)
+    # elif classifier_name == 'HOTCNN_BACILLUS_01':
+    #     from mymodels import cnn
+    #     classifier = cnn.HOTCNN_BACILLUS_01(input_shape, n_class)
+    # elif classifier_name == 'HOT_RES_BACILLUS_01':
+    #     from mymodels import cnn
+    #     classifier = getattr(cnn, 'HOT_RES_BACILLUS_01')(input_shape, n_class)
+    else:
+        # print(f'"{classifier_name}" is not a valid classifier name. Using DEFAULT: "HOTCNN01"')
+        classifier = getattr(cnn, classifier_name)(input_shape, n_class)
     if verbose:
-        model.summary()
-    return model
+        classifier.summary()
+    return classifier
 
 
 def get_calls():
@@ -51,14 +54,12 @@ def get_calls():
 
     cycles = 50
     calls = list()
-    calls.append(
-        C.ModelCheckpoint(args.weights_dir + '/weights-{epoch:02d}.h5', save_best_only=True, save_weights_only=True,
-                          verbose=0))
+    calls.append(None)  # Position for Chackpoint
     calls.append(C.CSVLogger(args.weights_dir + '/log.csv'))
     calls.append(C.TensorBoard(log_dir=args.weights_dir + '/tensorboard-logs/{}'.format(actual_partition),
                                batch_size=args.batch_size, histogram_freq=args.debug))
-    calls.append(C.EarlyStopping(monitor='val_loss', patience=50, verbose=0))
-    calls.append(C.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.0001, verbose=0))
+    calls.append(C.EarlyStopping(monitor='val_loss', patience=PATIENCE, verbose=0))
+    # calls.append(C.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.0001, verbose=0))
     calls.append(C.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch)))
     # calls.append( C.LearningRateScheduler(schedule=lambda epoch: args.lr * math.cos(1+( (epoch-1 % (args.epochs/cycles)))/(args.epochs/cycles) ) ))	
     #    calls.append( C.LearningRateScheduler(schedule=lambda epoch: 0.001 * np.exp(-epoch / 10.)) )
@@ -74,7 +75,6 @@ def train(model, data, args, actual_partition):
     :param args: arguments
     :return: The trained model
     """
-    global prefix_name
 
     # unpacking the data
     (x_train, y_train), (x_test, y_test) = data
@@ -82,25 +82,26 @@ def train(model, data, args, actual_partition):
     # callbacks
     calls = get_calls()
 
-    lossfunc = ['mse', 'binary_crossentropy']
+    lossfuncs = ['binary_crossentropy', 'mse']
+    if args.n_class == 1:
+        loss_func = lossfuncs[0]
+    else:
+        loss_func = lossfuncs[1]
     # compile the model
-
-    #    validation_data=[[x_test, y_test], [y_test, x_test]]
-    #    validation_split=0.1
     #    seeds = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
     seeds = [23, 29, 31]
+    # seeds = [23]
     #    seeds = [23, 29]
     for s in range(len(seeds)):
         seed = seeds[s]
         print('{} Train on SEED {}'.format(s, seed))
 
-        name = args.weights_dir + '/' + prefix_name + '-partition_{}-seed_{}-weights.h5'.format(actual_partition, s)
-        #        calls[0] = C.ModelCheckpoint(name + '-{epoch:02d}.h5', save_best_only=True, save_weights_only=True, verbose=1)
-        calls[0] = C.ModelCheckpoint(name, save_best_only=True, save_weights_only=True, verbose=1)
+        weight_file_name = TIMESTAMP + '-seed_{}-partition_{}-weights.h5'.format(s, actual_partition)
+        weight_path = os.path.join(args.weights_dir, weight_file_name)
+        calls[0] = C.ModelCheckpoint(weight_path, save_best_only=True, save_weights_only=True, verbose=1)
 
         model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                      loss=lossfunc[1],
-                      # loss=lossfunc[0],
+                      loss=loss_func,
                       # loss_weights=[1., args.lam_recon],
                       metrics=['accuracy']
                       )
@@ -137,15 +138,12 @@ def test(model, data):
 
 def load_dataset(organism):
     from ml_data import SequenceNucsData, SequenceNucHotvector, SequenceMotifHot
-    global max_features
-    global maxlen
 
     print('Load organism: {}'.format(organism))
     npath, ppath = './fasta/{}_neg.fa'.format(organism), './fasta/{}_pos.fa'.format(organism)
     print(npath, ppath)
 
     k = 1
-    max_features = 4 ** k
     samples = SequenceNucHotvector(npath, ppath)
 
     X, y = samples.getX(), samples.getY()
@@ -156,7 +154,6 @@ def load_dataset(organism):
     #     X = X[:, (ini-30):(ini+11)]
     y = y.astype('int32')
     print('Input Shapes\nX: {} | y: {}'.format(X.shape, y.shape))
-    maxlen = X.shape[2]
     return X, y, X.shape[1:]
 
 
@@ -174,12 +171,11 @@ def load_partition(train_index, test_index, X, y):
 
 
 def get_best_weight(args, actual_partition):
-    global prefix_name
 
-    # Select weights 
-    file_prefix = prefix_name + '-partition_{}'.format(actual_partition)
-    file_sufix = '-weights.h5'
-    model_weights = [x for x in os.listdir(args.weights_dir + '/') if
+    # Select weights
+    file_prefix = TIMESTAMP
+    file_sufix = '-partition_{}-weights.h5'.format(actual_partition)
+    model_weights = [x for x in os.listdir(args.weights_dir + os.path.sep) if
                      x.startswith(file_prefix) and x.endswith(file_sufix)]
     print('Testing weigths', model_weights)
     best_mcc = -10000.0
@@ -195,9 +191,8 @@ def get_best_weight(args, actual_partition):
         weight_file = model_weights[i]
 
         # Create new model to receive this weights
-        # model = ConvNet()
         model = create_classifier(CLASSIFIER, INPUT_SHAPE, N_CLASS)
-        model.load_weights(args.weights_dir + '/' + weight_file)
+        model.load_weights(os.path.join(args.weights_dir, weight_file))
 
         # Get statistics for model loaded with current weights
         stats, y_pred = test(model=model, data=(x_test, y_test))
@@ -216,8 +211,8 @@ def get_best_weight(args, actual_partition):
 
     # Persist best weights
     model = create_classifier(CLASSIFIER, INPUT_SHAPE, N_CLASS)
-    model.load_weights(args.weights_dir + '/' + selected_weight)
-    model.save_weights(args.weights_dir + '/' + prefix_name + '-partition_{}-best_weights.h5'.format(actual_partition))
+    model.load_weights(os.path.join(args.weights_dir, selected_weight))
+    model.save_weights(os.path.join(args.weights_dir, TIMESTAMP + '-partition_{}-best_weights.h5'.format(actual_partition)))
 
     K.clear_session()
 
@@ -250,71 +245,27 @@ def allocate_stats(stats):
     results['fn'].append(stats.fn)
 
 
-def get_args():
-    # setting the hyper parameters
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', default='CNN_01')
-    parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--epochs', default=300, type=int)
-    parser.add_argument('--lr', default=0.001, type=float, help="Initial learning rate")
-    parser.add_argument('--lr_decay', default=0.9, type=float,
-                        help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
-
-    parser.add_argument('--kernel1_size', default=3, type=int,
-                        help="Size of kernel of convolutional operation. Should > 0.")  # kernel1_size should > 0
-    parser.add_argument('--kernel1_strides', default=2, type=int,
-                        help="strides length of convolutional operation. Should > 0.")  # kernel1_strides should > 0
-    parser.add_argument('--num_kernel1', default=64, type=int,
-                        help="Number of filters on convolutional operation. Should > 0.")  # num_kernel1 should > 0
-    parser.add_argument('--pool1_size', default=3, type=int,
-                        help="Size of pooling window. Should > 0.")  # pool1_size should > 0
-    parser.add_argument('--pool1_strides', default=2, type=int,
-                        help="strides length of pooling window. Should > 0.")  # pool1_strides should > 0
-
-    parser.add_argument('--kernel2_size', default=3, type=int,
-                        help="Size of kernel of convolutional operation. Should > 0.")  # kernel1_size should > 0
-    parser.add_argument('--kernel2_strides', default=2, type=int,
-                        help="strides length of convolutional operation. Should > 0.")  # kernel1_strides should > 0
-    parser.add_argument('--num_kernel2', default=256, type=int,
-                        help="Number of filters on convolutional operation. Should > 0.")  # num_kernel1 should > 0
-    parser.add_argument('--pool2_size', default=3, type=int,
-                        help="Size of pooling window. Should > 0.")  # pool1_size should > 0
-    parser.add_argument('--pool2_strides', default=2, type=int,
-                        help="strides length of pooling window. Should > 0.")  # pool1_strides should > 0
-
-    #    parser.add_argument('--shift_fraction', default=0.0, type=float, help="Fraction of pixels to shift at most in each direction.")
-    parser.add_argument('--debug', default=1, type=int)  # debug>0 will save weights by TensorBoard
-    parser.add_argument('--weights_dir', default='./weights')
-    parser.add_argument('--results_dir', default='./results')
-    parser.add_argument('--is_training', default=1, type=int, help="Size of embedding vector. Should > 0.")
-    parser.add_argument('--weights', default=None)
-    parser.add_argument('-o', '--organism', default=None,
-                        help="The organism used for test. Generate auto path for fasta files. Should be specified when testing")
-
-    args = parser.parse_args()
-    return args
-
-
 if __name__ == "__main__":
 
-    prefix_name
-    TIMESTAMP = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    EXPERIMENT = dict()
-    CV = 10
-
-    EXPERIMENT['timestamp'] = TIMESTAMP
-    EXPERIMENT['cv'] = CV
-
-    CLASSIFIER = 'CNN01'
-    N_CLASS = 1
-    INPUT_SHAPE = None
+    from utils import get_args
 
     args = get_args()
 
-    prefix_name = 'conv1_org_{}-batch_{}-kernel_{}-pool_{}-cv_{}'.format(args.organism, args.batch_size,
-                                                                         args.kernel1_size, args.pool1_size, CV)
+    INPUT_SHAPE = None
+    EXPERIMENT_INFO = dict()
+
+    N_CLASS = args.n_class
+    CV = args.cv
+    CLASSIFIER = args.model
+    PATIENCE = args.patience
+
+    TIMESTAMP = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+    EXPERIMENT_INFO['timestamp'] = TIMESTAMP
+    EXPERIMENT_INFO['classifier'] = CLASSIFIER
+    EXPERIMENT_INFO['cv'] = CV
+    # prefix_name = 'conv1_org_{}-batch_{}-kernel_{}-pool_{}-cv_{}'.format(args.organism, args.batch_size,
+    #                                                                      args.kernel1_size, args.pool1_size, CV)
 
     if not os.path.exists(args.weights_dir):
         os.makedirs(args.weights_dir)
@@ -359,17 +310,29 @@ if __name__ == "__main__":
         # break
 
     for metric in headers[1:]:
-        EXPERIMENT[metric] = {'mean': np.mean(results[metric]), 'std': np.std(results[metric])}
+        EXPERIMENT_INFO[metric] = {'mean': np.mean(results[metric]), 'std': np.std(results[metric])}
         for partition, value in enumerate(results[metric]):
-            EXPERIMENT[metric][partition] = value
+            EXPERIMENT_INFO[metric][str(partition)] = float(value)
 
     MEAN_MCC = '{:05d}'.format(int(np.mean(results['mcc']) * 10000))
     STD_MCC = '{:05d}'.format(int(np.std(results['mcc']) * 10000))
     MODEL_TYPE = args.model
     out_file_name = f'{TIMESTAMP}_{MODEL_TYPE}_mcc-{MEAN_MCC}-{STD_MCC}'
-    # Write results of partitions to CSV
-    df = pd.DataFrame(results, columns=headers)
-    df.to_csv(args.results_dir + '/results_' + prefix_name + '.csv')
 
-    with open(args.results + '/' + TIMESTAMP + '.json', 'w') as fp:
-        json.dump(EXPERIMENT, fp, sort_keys=True, indent=4)
+    # Write experiment INFO to CSV and JSON
+    df = pd.DataFrame(results, columns=headers)
+    aggregations = np.zeros((2, len(headers)))
+    for i in range(len(headers)):
+        aggregations[0, i] = np.mean(df.iloc[:, i])
+        aggregations[1, i] = np.std(df.iloc[:, i])
+    df2 = pd.DataFrame(aggregations, columns=headers)
+    df.append(df2)
+    print('+'*50)
+    print(df)
+    print(aggregations)
+    print(df2)
+    print('+' * 50)
+    f_name = TIMESTAMP + '_' + CLASSIFIER
+    df.to_csv(os.path.join(args.results_dir, f_name + '.csv'))
+    with open(os.path.join(args.results_dir, f_name + '.json'), 'w') as fp:
+        json.dump(EXPERIMENT_INFO, fp, sort_keys=True, indent=4)
