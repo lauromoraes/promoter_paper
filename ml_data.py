@@ -35,7 +35,7 @@ class BaseData(object):
     def get_kmers(self, seq, k=1, step=1):
         numChunks = ((len(seq)-k)/step)+1
         mers = list()
-        i: int = 0
+        int = 0
         for i in range(0, int(numChunks*step-1), int(step)):
             mers.append(seq[i:i+k])
         return mers
