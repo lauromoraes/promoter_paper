@@ -31,9 +31,10 @@ results = {x: [] for x in headers}
 
 
 def create_classifier(classifier_name, input_shape, n_class, verbose=False):
-    from mymodels import cnn
+    import mymodels
+    module = __import__(mymodels.cnn)
     if classifier_name == 'HOTCNN01':
-        classifier = cnn.HOTCNN01(input_shape, n_class)
+        classifier = module.HOTCNN01(input_shape, n_class)
     # elif classifier_name == 'HOTCNN_BACILLUS_01':
     #     from mymodels import cnn
     #     classifier = cnn.HOTCNN_BACILLUS_01(input_shape, n_class)
@@ -42,7 +43,7 @@ def create_classifier(classifier_name, input_shape, n_class, verbose=False):
     #     classifier = getattr(cnn, 'HOT_RES_BACILLUS_01')(input_shape, n_class)
     else:
         # print(f'"{classifier_name}" is not a valid classifier name. Using DEFAULT: "HOTCNN01"')
-        classifier = getattr(cnn, classifier_name)(input_shape, n_class)
+        classifier = getattr(module, classifier_name)(input_shape, n_class)
     if verbose:
         classifier.summary()
     return classifier
