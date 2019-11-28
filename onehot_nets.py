@@ -31,8 +31,9 @@ results = {x: [] for x in headers}
 
 
 def create_classifier(classifier_name, input_shape, n_class, verbose=False):
+    import importlib
     import mymodels
-    module = __import__(mymodels.cnn)
+    module = importlib.import_module("mymodels.cnn")
     if classifier_name == 'HOTCNN01':
         classifier = module.HOTCNN01(input_shape, n_class)
     # elif classifier_name == 'HOTCNN_BACILLUS_01':
