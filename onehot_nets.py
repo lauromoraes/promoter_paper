@@ -32,6 +32,8 @@ results = {x: [] for x in headers}
 
 def create_classifier(classifier_name, input_shape, n_class, verbose=False):
     import importlib
+    import sys
+    sys.path.insert(0, "./mymodels")
     module = importlib.import_module("mymodels.cnn")
     if classifier_name == 'HOTCNN01':
         classifier = module.HOTCNN01(input_shape, n_class)
