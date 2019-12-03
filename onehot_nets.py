@@ -2,7 +2,8 @@
 """
 
 Usage:
-
+    python onehot_nets.py -o Bacillus --m
+odel HOT_RES_BACILLUS_01 --epochs 3 --patience 20 --cv 5 --n_class 1
        ... ...
 
     
@@ -26,29 +27,31 @@ from metrics import margin_loss
 
 headers = ['partition', 'mcc', 'f1', 'sn', 'sp', 'acc', 'prec', 'tp', 'fp', 'tn', 'fn']
 results = {x: [] for x in headers}
+
+
 # results = {'partition': [], 'mcc': [], 'f1': [], 'sn': [], 'sp': [], 'acc': [], 'prec': [], 'tp': [], 'fp': [],
 #            'tn': [], 'fn': []}
 
 
-def create_classifier(classifier_name, input_shape, n_class, verbose=False):
+def create_model(MODEL_TYPE_name, input_shape, n_class, verbose=False):
     import importlib
     import sys
-    sys.path.insert(0, "./mymodels")
+    sys.path.insert(0, "./mymodels/")
     module = importlib.import_module("mymodels.cnn")
-    if classifier_name == 'HOTCNN01':
-        classifier = module.HOTCNN01(input_shape, n_class)
-    # elif classifier_name == 'HOTCNN_BACILLUS_01':
+    if MODEL_TYPE_name == 'HOTCNN01':
+        MODEL_TYPE = module.HOTCNN01(input_shape, n_class)
+    # elif MODEL_TYPE_name == 'HOTCNN_BACILLUS_01':
     #     from mymodels import cnn
-    #     classifier = cnn.HOTCNN_BACILLUS_01(input_shape, n_class)
-    # elif classifier_name == 'HOT_RES_BACILLUS_01':
+    #     MODEL_TYPE = cnn.HOTCNN_BACILLUS_01(input_shape, n_class)
+    # elif MODEL_TYPE_name == 'HOT_RES_BACILLUS_01':
     #     from mymodels import cnn
-    #     classifier = getattr(cnn, 'HOT_RES_BACILLUS_01')(input_shape, n_class)
+    #     MODEL_TYPE = getattr(cnn, 'HOT_RES_BACILLUS_01')(input_shape, n_class)
     else:
-        # print(f'"{classifier_name}" is not a valid classifier name. Using DEFAULT: "HOTCNN01"')
-        classifier = getattr(module, classifier_name)(input_shape, n_class)
+        # print(f'"{MODEL_TYPE_name}" is not a valid MODEL_TYPE name. Using DEFAULT: "HOTCNN01"')
+        MODEL_TYPE = getattr(module, MODEL_TYPE_name)(input_shape, n_class)
     if verbose:
-        classifier.summary()
-    return classifier
+        MODEL_TYPE.summary()
+    return MODEL_TYPE
 
 
 def get_calls():
@@ -59,11 +62,14 @@ def get_calls():
     calls = list()
     calls.append(None)  # Position for Chackpoint
     calls.append(C.CSVLogger(args.weights_dir + '/log.csv'))
-    calls.append(C.TensorBoard(log_dir=args.weights_dir + '/tensorboard-logs/{}'.format(actual_partition),
-                               batch_size=args.batch_size, histogram_freq=args.debug))
-    calls.append(C.EarlyStopping(monitor='val_loss', patience=PATIENCE, verbose=0))
-    # calls.append(C.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.0001, verbose=0))
-    calls.append(C.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch)))
+    calls.append(C.TensorBoard(
+        log_dir=args.weights_dir + '/tensorboard_logs/{}_{}_{}'.format(MODEL_TYPE, TIMESTAMP, actual_partition),
+        batch_size=args.batch_size, histogram_freq=args.debug))
+    if PATIENCE > 0:
+        calls.append(C.EarlyStopping(monitor='val_loss', patience=PATIENCE, verbose=0))
+    calls.append(C.ReduceLROnPlateau(monitor='val_loss', factor=args.lr_decay, patience=10, min_lr=0.00001, cooldown=0,
+                                     verbose=0))
+    # calls.append(C.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch)))
     # calls.append( C.LearningRateScheduler(schedule=lambda epoch: args.lr * math.cos(1+( (epoch-1 % (args.epochs/cycles)))/(args.epochs/cycles) ) ))	
     #    calls.append( C.LearningRateScheduler(schedule=lambda epoch: 0.001 * np.exp(-epoch / 10.)) )
     return calls
@@ -91,15 +97,13 @@ def train(model, data, args, actual_partition):
     else:
         loss_func = lossfuncs[1]
     # compile the model
-    #    seeds = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
-    seeds = [23, 29, 31]
-    # seeds = [23]
-    #    seeds = [23, 29]
-    for s in range(len(seeds)):
+    seeds = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
+    for s in range(min(args.seeds, len(seeds))):
         seed = seeds[s]
         print('{} Train on SEED {}'.format(s, seed))
 
-        weight_file_name = TIMESTAMP + '-seed_{}-partition_{}-weights.h5'.format(s, actual_partition)
+        weight_file_name = '{}-{}-partition_{}-seed_{}'.format(MODEL_TYPE, TIMESTAMP, actual_partition,
+                                                               s) + '-epoch_{epoch:02d}-loss_{val_loss:.2f}.hdf5'
         weight_path = os.path.join(args.weights_dir, weight_file_name)
         calls[0] = C.ModelCheckpoint(weight_path, save_best_only=True, save_weights_only=True, verbose=1)
 
@@ -139,23 +143,26 @@ def test(model, data):
     return stats, y_pred
 
 
-def load_dataset(organism):
+def load_dataset(organism, conding_type='onehot', k=1):
     from ml_data import SequenceNucsData, SequenceNucHotvector, SequenceMotifHot
 
     print('Load organism: {}'.format(organism))
     npath, ppath = './fasta/{}_neg.fa'.format(organism), './fasta/{}_pos.fa'.format(organism)
     print(npath, ppath)
 
-    k = 1
-    samples = SequenceNucHotvector(npath, ppath)
+    if conding_type == 'onehot':
+        samples = SequenceNucHotvector(npath, ppath)
+    elif conding_type == 'embedding':
+        k = 1
+        samples = SequenceNucsData(npath, ppath, k=k)
 
     X, y = samples.getX(), samples.getY()
+    X, y = X.astype('int32'), y.astype('int32')
+
     #    X = X.reshape(-1, 38, 79, 1).astype('float32')
-    X = X.astype('int32')
     #     ini = 59
     # #    ini = 199
     #     X = X[:, (ini-30):(ini+11)]
-    y = y.astype('int32')
     print('Input Shapes\nX: {} | y: {}'.format(X.shape, y.shape))
     return X, y, X.shape[1:]
 
@@ -174,13 +181,15 @@ def load_partition(train_index, test_index, X, y):
 
 
 def get_best_weight(args, actual_partition):
-
     # Select weights
-    file_prefix = TIMESTAMP
-    file_sufix = '-partition_{}-weights.h5'.format(actual_partition)
+    file_prefix = '{}-{}-partition_{}'.format(MODEL_TYPE, TIMESTAMP, actual_partition)
+    file_sufix = '.hdf5'
+    # print(os.listdir(args.weights_dir + os.path.sep))
+    # print(file_prefix)
+    # print(file_sufix)
     model_weights = [x for x in os.listdir(args.weights_dir + os.path.sep) if
                      x.startswith(file_prefix) and x.endswith(file_sufix)]
-    print('Testing weigths', model_weights)
+    print('Testing weigths:', model_weights)
     best_mcc = -10000.0
     selected_weight = None
     selected_stats = None
@@ -194,7 +203,7 @@ def get_best_weight(args, actual_partition):
         weight_file = model_weights[i]
 
         # Create new model to receive this weights
-        model = create_classifier(CLASSIFIER, INPUT_SHAPE, N_CLASS)
+        model = create_model(MODEL_TYPE, INPUT_SHAPE, N_CLASS)
         model.load_weights(os.path.join(args.weights_dir, weight_file))
 
         # Get statistics for model loaded with current weights
@@ -213,9 +222,11 @@ def get_best_weight(args, actual_partition):
         K.clear_session()
 
     # Persist best weights
-    model = create_classifier(CLASSIFIER, INPUT_SHAPE, N_CLASS)
+    print(os.path.join(args.weights_dir, selected_weight))
+    model = create_model(MODEL_TYPE, INPUT_SHAPE, N_CLASS)
     model.load_weights(os.path.join(args.weights_dir, selected_weight))
-    model.save_weights(os.path.join(args.weights_dir, TIMESTAMP + '-partition_{}-best_weights.h5'.format(actual_partition)))
+    best_weight = selected_weight.split('.')[0] + '-mcc_{:.4f}.hdf5'.format(best_mcc)
+    model.save_weights(os.path.join(args.best_weights_dir, best_weight))
 
     K.clear_session()
 
@@ -248,6 +259,13 @@ def allocate_stats(stats):
     results['fn'].append(stats.fn)
 
 
+def define_name(results):
+    mean_mcc = '{:05d}'.format(int(np.mean(results['mcc']) * 10000))
+    std_mcc = '{:05d}'.format(int(np.std(results['mcc']) * 10000))
+    out_file_name = '{}-MCC_{}_{}-T{}'.format(MODEL_TYPE, mean_mcc, std_mcc, TIMESTAMP)
+    return out_file_name
+
+
 if __name__ == "__main__":
 
     from utils import get_args
@@ -259,14 +277,16 @@ if __name__ == "__main__":
 
     N_CLASS = args.n_class
     CV = args.cv
-    CLASSIFIER = args.model
+    MODEL_TYPE = args.model
     PATIENCE = args.patience
 
-    TIMESTAMP = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    TIMESTAMP = datetime.now().strftime("%Y_%m_%d=%H_%M_%S")
 
     EXPERIMENT_INFO['timestamp'] = TIMESTAMP
-    EXPERIMENT_INFO['classifier'] = CLASSIFIER
+    EXPERIMENT_INFO['MODEL_TYPE'] = MODEL_TYPE
     EXPERIMENT_INFO['cv'] = CV
+
+
     # prefix_name = 'conv1_org_{}-batch_{}-kernel_{}-pool_{}-cv_{}'.format(args.organism, args.batch_size,
     #                                                                      args.kernel1_size, args.pool1_size, CV)
 
@@ -275,9 +295,12 @@ if __name__ == "__main__":
 
     if not os.path.exists(args.results_dir):
         os.makedirs(args.results_dir)
+    args.results_dir = os.path.join(args.results_dir, '{}-{}-{}'.format(MODEL_TYPE, CV, TIMESTAMP))
+    if not os.path.exists(args.results_dir):
+        os.makedirs(args.results_dir)
 
     # load data
-    X, y, INPUT_SHAPE = load_dataset(args.organism)
+    X, y, INPUT_SHAPE = load_dataset(args.organism, args.coding)
 
     #    (x_train, y_train), (x_test, y_test) = load_imdb()
 
@@ -294,7 +317,7 @@ if __name__ == "__main__":
         print(y_train.shape)
 
         # Define model
-        model = create_classifier(CLASSIFIER, INPUT_SHAPE, N_CLASS, verbose=True)
+        model = create_model(MODEL_TYPE, INPUT_SHAPE, N_CLASS, verbose=True)
         #        plot_model(model, to_file=args.weights_dir + '/model.png', show_shapes=True)
 
         # Train model and get weights
@@ -312,15 +335,17 @@ if __name__ == "__main__":
 
         # break
 
+    out_file_name = define_name(results)
+    # serialize model to JSON
+    model_json = model.to_json()
+
+    with open(os.path.join(args.results_dir, "{}.json".format(out_file_name)), "w") as json_file:
+        json_file.write(model_json)
+
     for metric in headers[1:]:
         EXPERIMENT_INFO[metric] = {'mean': np.mean(results[metric]), 'std': np.std(results[metric])}
         for partition, value in enumerate(results[metric]):
             EXPERIMENT_INFO[metric][str(partition)] = float(value)
-
-    MEAN_MCC = '{:05d}'.format(int(np.mean(results['mcc']) * 10000))
-    STD_MCC = '{:05d}'.format(int(np.std(results['mcc']) * 10000))
-    MODEL_TYPE = args.model
-    out_file_name = '{}_{}_mcc-{}-{}'.format(TIMESTAMP, MODEL_TYPE, MEAN_MCC, STD_MCC)
 
     # Write experiment INFO to CSV and JSON
     df = pd.DataFrame(results, columns=headers)
@@ -330,12 +355,11 @@ if __name__ == "__main__":
         aggregations[1, i] = np.std(df.iloc[:, i])
     df2 = pd.DataFrame(aggregations, columns=headers)
     df.append(df2)
-    print('+'*50)
+    print('+' * 50)
     print(df)
     print(aggregations)
     print(df2)
     print('+' * 50)
-    f_name = TIMESTAMP + '_' + CLASSIFIER
-    df.to_csv(os.path.join(args.results_dir, f_name + '.csv'))
-    with open(os.path.join(args.results_dir, f_name + '.json'), 'w') as fp:
+    df.to_csv(os.path.join(args.results_dir, out_file_name + '.csv'))
+    with open(os.path.join(args.results_dir, out_file_name + '.stats.json'), 'w') as fp:
         json.dump(EXPERIMENT_INFO, fp, sort_keys=True, indent=4)

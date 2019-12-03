@@ -1,6 +1,8 @@
 .idea
 __pycache__
 *.h5
+*.hdf5
 *.sh
 weights/*
+best_weights/*
 !weights/*.png
