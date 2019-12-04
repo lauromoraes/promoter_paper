@@ -2,8 +2,7 @@
 """
 
 Usage:
-    python onehot_nets.py -o Bacillus --m
-odel HOT_RES_BACILLUS_01 --epochs 3 --patience 20 --cv 5 --n_class 1
+    python onehot_nets.py -o Bacillus --model HOT_RES_BACILLUS_01 --epochs 3 --patience 20 --cv 5 --n_class 1
        ... ...
 
     
