@@ -142,16 +142,16 @@ def test(model, data):
     return stats, y_pred
 
 
-def load_dataset(organism, conding_type='onehot', k=1):
+def load_dataset(organism, coding_type='onehot', k=1):
     from ml_data import SequenceNucsData, SequenceNucHotvector, SequenceMotifHot
 
     print('Load organism: {}'.format(organism))
     npath, ppath = './fasta/{}_neg.fa'.format(organism), './fasta/{}_pos.fa'.format(organism)
     print(npath, ppath)
 
-    if conding_type == 'onehot':
+    if coding_type == 'onehot':
         samples = SequenceNucHotvector(npath, ppath)
-    elif conding_type == 'embedding':
+    elif coding_type == 'embedding':
         k = 1
         samples = SequenceNucsData(npath, ppath, k=k)
 
