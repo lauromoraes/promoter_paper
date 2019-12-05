@@ -261,7 +261,12 @@ def allocate_stats(stats):
 def define_name(results):
     mean_mcc = '{:05d}'.format(int(np.mean(results['mcc']) * 10000))
     std_mcc = '{:05d}'.format(int(np.std(results['mcc']) * 10000))
-    out_file_name = '{}-MCC_{}_{}-T{}'.format(MODEL_TYPE, mean_mcc, std_mcc, TIMESTAMP)
+
+    with open('results-logs.tsv', 'a+') as f:
+        line = '\t'.join([str(x) for x in (MODEL_TYPE, CV, mean_mcc, std_mcc, TIMESTAMP)]) + '\n'
+        f.write(line)
+
+    out_file_name = '{}-P{}-MCC_{}_{}-T{}'.format(MODEL_TYPE, CV, mean_mcc, std_mcc, TIMESTAMP)
     return out_file_name
 
 
@@ -294,7 +299,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(args.results_dir):
         os.makedirs(args.results_dir)
-    args.results_dir = os.path.join(args.results_dir, '{}-{}-{}'.format(MODEL_TYPE, CV, TIMESTAMP))
+    args.results_dir = os.path.join(args.results_dir, '{}-P{}-T{}'.format(MODEL_TYPE, CV, TIMESTAMP))
     if not os.path.exists(args.results_dir):
         os.makedirs(args.results_dir)
 
@@ -359,6 +364,7 @@ if __name__ == "__main__":
     print(aggregations)
     print(df2)
     print('+' * 50)
+
     df.to_csv(os.path.join(args.results_dir, out_file_name + '.csv'))
     with open(os.path.join(args.results_dir, out_file_name + '.stats.json'), 'w') as fp:
         json.dump(EXPERIMENT_INFO, fp, sort_keys=True, indent=4)

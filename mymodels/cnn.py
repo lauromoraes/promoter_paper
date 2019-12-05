@@ -2,7 +2,7 @@ from keras import layers, models
 from keras.initializers import glorot_normal, glorot_uniform
 from capsulelayers import CapsuleLayer, PrimaryCap, Length, Mask
 from keras.preprocessing import sequence
-from keras.layers import Conv2D, BatchNormalization, Activation, Add, MaxPooling2D, AveragePooling2D, Dense, Dropout, \
+from keras.layers import Conv2D, BatchNormalization, Activation, Add, MaxPooling2D, AveragePooling2D, AveragePooling1D, Dense, Dropout, \
     Flatten, GlobalAveragePooling2D, LSTM, Embedding, GlobalAveragePooling1D, Conv1D, MaxPooling1D, TimeDistributed
 from keras import regularizers
 
@@ -17,7 +17,8 @@ def HOTCNN01(input_shape, n_class):
     return model
 
 
-def HOTCNN_BACILLUS_01(input_shape, n_class):
+# python onehot_nets.py -o Bacillus --model HOT_CNN_BACILLUS_01 --coding onehot --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+def HOT_CNN_BACILLUS_01(input_shape, n_class):
     # Input layer
     x = layers.Input(shape=input_shape)
 
@@ -46,7 +47,49 @@ def HOTCNN_BACILLUS_01(input_shape, n_class):
     flat = layers.Flatten()(block2)
 
     # Fully connected layers
-    dense1 = layers.Dense(256, activation='relu')(flat)
+    dense1 = layers.Dense(128, activation='relu')(flat)
+
+    # Classification layer
+    outputs = layers.Dense(n_class, activation='sigmoid')(dense1)
+
+    # Create model object
+    model = models.Model(inputs=[x], outputs=[outputs])
+
+    return model
+
+# python onehot_nets.py -o Bacillus --model EMB_CNN_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+def EMB_CNN_BACILLUS_01(input_shape, n_class):
+    # Input layer
+    x = layers.Input(shape=input_shape)
+
+    emb = Embedding(4, 9, input_length=input_shape[0])(x)
+
+    # ConvPool block 2
+    block1 = layers.Conv1D(
+        filters=100,
+        kernel_size=15,
+        padding='valid',
+        activation='relu')(emb)
+    block1 = layers.MaxPooling1D(
+        pool_size=2,
+        strides=2)(block1)
+
+    # ConvPool block 2
+    block2 = layers.Conv1D(
+        filters=250,
+        kernel_size=17,
+        strides=2,
+        padding='valid',
+        activation='relu')(block1)
+    block2 = layers.MaxPooling1D(
+        pool_size=2,
+        strides=2)(block2)
+
+    # Flat tensors
+    flat = layers.Flatten()(block2)
+
+    # Fully connected layers
+    dense1 = layers.Dense(128, activation='relu')(flat)
 
     # Classification layer
     outputs = layers.Dense(n_class, activation='sigmoid')(dense1)
@@ -93,6 +136,7 @@ def HOT_RES_BACILLUS_01(input_shape, n_class):
 
     return model
 
+# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_clas
 def EMB_RES_BACILLUS_01(input_shape, n_class):
     n_filters = 128
     # Input layer
@@ -134,6 +178,144 @@ def EMB_RES_BACILLUS_01(input_shape, n_class):
     outputs = Dense(n_class, activation='sigmoid', name='fc' + str(n_class))(fully1)
 
     # Create model object
+    model = models.Model(inputs=[x], outputs=[outputs])
+
+    return model
+
+# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_02 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+def EMB_RES_BACILLUS_02(input_shape, n_class):
+    n_filters = 128
+    emb_dim = 9
+
+    pool_types = ('avg', 'max')
+    pool_type = 0
+    pool_size = 3
+
+    # INPUT
+    x = layers.Input(shape=input_shape)
+
+    # EMBEDDING
+    emb = Embedding(4, emb_dim, input_length=input_shape[0])(x)
+
+    # =========================
+    # RESIDUAL BLOCK 01 - START
+    # =========================
+
+    # CONV X
+    conv_x = Conv1D(filters=n_filters, kernel_size=15, padding='same')(emb)
+    conv_x = Activation('relu')(conv_x)
+    conv_x = BatchNormalization()(conv_x)
+    # POOLING X
+    if pool_types[pool_type] == 'max':
+        conv_x = MaxPooling1D(pool_size, strides=1, padding='same')(conv_x)
+    elif pool_types[pool_type] == 'avg':
+        conv_x = AveragePooling1D(pool_size, strides=1, padding='same')(conv_x)
+
+    # CONV Y
+    conv_y = Conv1D(filters=n_filters, kernel_size=17, padding='same')(conv_x)
+    conv_y = Activation('relu')(conv_y)
+    conv_y = BatchNormalization()(conv_y)
+    # POOLING Y
+    if pool_types[pool_type] == 'max':
+        conv_y = MaxPooling1D(pool_size, strides=1, padding='same')(conv_y)
+    elif pool_types[pool_type] == 'avg':
+        conv_y = AveragePooling1D(pool_size, strides=1, padding='same')(conv_y)
+
+    # CONV Z
+    conv_z = Conv1D(filters=n_filters, kernel_size=21, padding='same')(conv_y)
+    conv_z = BatchNormalization()(conv_z)
+
+    # SHORTCUT
+    shortcut_y = Conv1D(filters=n_filters, kernel_size=1, padding='same')(emb)
+    shortcut_y = BatchNormalization()(shortcut_y)
+
+    # =========================
+    # RESIDUAL BLOCK 01 - END
+    # =========================
+    output_block_1 = Add()([shortcut_y, conv_z])
+    output_block_1 = Activation('relu')(output_block_1)
+
+    # POOLING
+    gap_layer = GlobalAveragePooling1D()(output_block_1)
+    gap_layer = Activation('relu')(gap_layer)
+    # gap_layer = BatchNormalization()(gap_layer)
+
+    # FULLY CONNECTED
+    fully1 = Dropout(.2)(gap_layer)
+    # fully1 = Dense(128, activation='relu', name='fully1' + str(n_class))(fully1)
+    # fully1 = Dropout(.1)(fully1)
+    outputs = Dense(n_class, activation='sigmoid', name='fc' + str(n_class))(fully1)
+
+    # CREATE MODEL
+    model = models.Model(inputs=[x], outputs=[outputs])
+
+    return model
+
+# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_03 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+def EMB_RES_BACILLUS_03(input_shape, n_class):
+    n_filters = 128
+    emb_dim = 9
+
+    pool_types = ('avg', 'max', False)
+    pool_type = 2
+    pool_size = 3
+
+    # INPUT
+    x = layers.Input(shape=input_shape)
+
+    # EMBEDDING
+    emb = Embedding(4, emb_dim, input_length=input_shape[0])(x)
+
+    # =========================
+    # RESIDUAL BLOCK 01 - START
+    # =========================
+
+    # CONV X
+    conv_x = Conv1D(filters=n_filters, kernel_size=15, padding='same')(emb)
+    conv_x = Activation('relu')(conv_x)
+    conv_x = BatchNormalization()(conv_x)
+    # POOLING X
+    if pool_types[pool_type] == 'max':
+        conv_x = MaxPooling1D(pool_size, strides=1, padding='same')(conv_x)
+    elif pool_types[pool_type] == 'avg':
+        conv_x = AveragePooling1D(pool_size, strides=1, padding='same')(conv_x)
+
+    # CONV Y
+    conv_y = Conv1D(filters=n_filters, kernel_size=17, padding='same')(conv_x)
+    conv_y = Activation('relu')(conv_y)
+    conv_y = BatchNormalization()(conv_y)
+    # POOLING Y
+    if pool_types[pool_type] == 'max':
+        conv_y = MaxPooling1D(pool_size, strides=1, padding='same')(conv_y)
+    elif pool_types[pool_type] == 'avg':
+        conv_y = AveragePooling1D(pool_size, strides=1, padding='same')(conv_y)
+
+    # CONV Z
+    conv_z = Conv1D(filters=n_filters, kernel_size=21, padding='same')(conv_y)
+    conv_z = BatchNormalization()(conv_z)
+
+    # SHORTCUT
+    shortcut_y = Conv1D(filters=n_filters, kernel_size=1, padding='same')(emb)
+    shortcut_y = BatchNormalization()(shortcut_y)
+
+    # =========================
+    # RESIDUAL BLOCK 01 - END
+    # =========================
+    output_block_1 = Add()([shortcut_y, conv_z])
+    output_block_1 = Activation('relu')(output_block_1)
+
+    # POOLING
+    gap_layer = GlobalAveragePooling1D()(output_block_1)
+    gap_layer = Activation('relu')(gap_layer)
+    # gap_layer = BatchNormalization()(gap_layer)
+
+    # FULLY CONNECTED
+    fully1 = Dropout(.2)(gap_layer)
+    # fully1 = Dense(128, activation='relu', name='fully1' + str(n_class))(fully1)
+    # fully1 = Dropout(.1)(fully1)
+    outputs = Dense(n_class, activation='sigmoid', name='fc' + str(n_class))(fully1)
+
+    # CREATE MODEL
     model = models.Model(inputs=[x], outputs=[outputs])
 
     return model
