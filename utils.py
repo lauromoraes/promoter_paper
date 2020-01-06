@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import csv
 import math
+import mlflow
 
 def get_args():
     # setting the hyper parameters
@@ -26,7 +27,7 @@ def get_args():
     parser.add_argument('--debug', default=1, type=int)  # debug>0 will save weights by TensorBoard
     parser.add_argument('--weights_dir', default=os.path.join('.', 'weights'))
     parser.add_argument('--best_weights_dir', default=os.path.join('.', 'best_weights'))
-    parser.add_argument('--results_dir', default=os.path.join('.', 'results'))
+    parser.add_argument('--base_results_dir', default=os.path.join('.', 'results'))
     parser.add_argument('--is_training', default=1, type=int, help="Size of embedding vector. Should > 0.")
     parser.add_argument('--weights', default=None)
     parser.add_argument('-o', '--organism', default=None,
@@ -34,6 +35,40 @@ def get_args():
 
     args = parser.parse_args()
     return args
+
+def set_log_params(args):
+    mlflow.log_param('cv', args.cv)
+    mlflow.log_param('model', args.model)
+    mlflow.log_param('batch_size', args.batch_size)
+    mlflow.log_param('epochs', args.epochs)
+    mlflow.log_param('seeds', args.seeds)
+    mlflow.log_param('patience', args.patience)
+    mlflow.log_param('lr', args.lr)
+    mlflow.log_param('lr_decay', args.lr_decay)
+
+def set_log_metrics(results):
+    mlflow.log_metric('mean_mcc', np.mean(results['mcc']))
+    mlflow.log_metric('std_mcc', np.std(results['mcc']))
+
+    mlflow.log_metric('mean_f1', np.mean(results['f1']))
+    mlflow.log_metric('std_f1', np.std(results['f1']))
+
+    mlflow.log_metric('mean_acc', np.mean(results['acc']))
+    mlflow.log_metric('std_acc', np.std(results['acc']))
+
+    mlflow.log_metric('mean_prec', np.mean(results['prec']))
+    mlflow.log_metric('std_prec', np.std(results['prec']))
+
+    mlflow.log_metric('mean_sn', np.mean(results['sn']))
+    mlflow.log_metric('std_sn', np.std(results['sn']))
+
+    mlflow.log_metric('mean_sp', np.mean(results['sp']))
+    mlflow.log_metric('std_sp', np.std(results['sp']))
+
+    # mlflow.log_metric('tp', results['tp'])
+    # mlflow.log_metric('fp', results['fp'])
+    # mlflow.log_metric('tn', results['tn'])
+    # mlflow.log_metric('fn', results['fn'])
 
 def plot_log(filename, show=True):
     # load data

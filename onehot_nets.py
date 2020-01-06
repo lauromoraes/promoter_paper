@@ -24,6 +24,8 @@ from sklearn.model_selection import StratifiedShuffleSplit
 
 from metrics import margin_loss
 
+import mlflow
+
 headers = ['partition', 'mcc', 'f1', 'sn', 'sp', 'acc', 'prec', 'tp', 'fp', 'tn', 'fn']
 results = {x: [] for x in headers}
 
@@ -53,7 +55,7 @@ def create_model(MODEL_TYPE_name, input_shape, n_class, verbose=False):
     return MODEL_TYPE
 
 
-def get_calls():
+def get_calls(actual_partition):
     from keras import callbacks as C
     import math
 
@@ -88,7 +90,7 @@ def train(model, data, args, actual_partition):
     (x_train, y_train), (x_test, y_test) = data
 
     # callbacks
-    calls = get_calls()
+    calls = get_calls(actual_partition)
 
     lossfuncs = ['binary_crossentropy', 'mse']
     if args.n_class == 1:
@@ -179,7 +181,7 @@ def load_partition(train_index, test_index, X, y):
     return (x_train, y_train), (x_test, y_test)
 
 
-def get_best_weight(args, actual_partition):
+def get_best_weight(args, actual_partition, x_test, y_test):
     # Select weights
     file_prefix = '{}-{}-partition_{}'.format(MODEL_TYPE, TIMESTAMP, actual_partition)
     file_sufix = '.hdf5'
@@ -242,7 +244,7 @@ def get_best_weight(args, actual_partition):
     return (selected_stats, selected_weight)
 
 
-def allocate_stats(stats):
+def allocate_stats(stats, actual_partition):
     global results
 
     results['partition'].append(actual_partition)
@@ -269,10 +271,40 @@ def define_name(results):
     out_file_name = '{}-P{}-MCC_{}_{}-T{}'.format(MODEL_TYPE, CV, mean_mcc, std_mcc, TIMESTAMP)
     return out_file_name
 
+def eval_model(X, y):
+    kf = StratifiedShuffleSplit(n_splits=CV, random_state=34267)
+    kf.get_n_splits(X, y)
+
+    actual_partition = 0
+    for train_index, test_index in kf.split(X, y):
+        actual_partition += 1
+        print('>>> Testing PARTITION {}'.format(actual_partition))
+        (x_train, y_train), (x_test, y_test) = load_partition(train_index, test_index, X, y)
+        print(x_train.shape)
+        print(y_train.shape)
+
+        # Define model
+        model = create_model(MODEL_TYPE, INPUT_SHAPE, N_CLASS, verbose=True)
+        #        plot_model(model, to_file=args.weights_dir + '/model.png', show_shapes=True)
+
+        # Train model and get weights
+        train(model=model, data=((x_train, y_train), (x_test, y_test)), args=args, actual_partition=actual_partition)
+        K.clear_session()
+
+        # Select best weights for this partition
+        (stats, weight_file) = get_best_weight(args, actual_partition, x_test, y_test)
+        print('Selected BEST: {} ({})'.format(weight_file, stats.Mcc))
+        #        model.save_weights(args.weights_dir + '/best_trained_model_partition_{}.h5'.format(actual_partition) )
+        #        print('Best Trained model for partition {} saved to \'%s/best_trained_model_partition_{}.h5\''.format(actual_partition, args.weights_dir, actual_partition))
+
+        # Allocate results of best weights for this partition
+        allocate_stats(stats, actual_partition)
+    return model, results
+
 
 if __name__ == "__main__":
 
-    from utils import get_args
+    from utils import get_args, set_log_params, set_log_metrics
 
     args = get_args()
 
@@ -297,47 +329,52 @@ if __name__ == "__main__":
     if not os.path.exists(args.weights_dir):
         os.makedirs(args.weights_dir)
 
-    if not os.path.exists(args.results_dir):
-        os.makedirs(args.results_dir)
-    args.results_dir = os.path.join(args.results_dir, '{}-P{}-T{}'.format(MODEL_TYPE, CV, TIMESTAMP))
+    if not os.path.exists(args.base_results_dir):
+        os.makedirs(args.base_results_dir)
+    args.results_dir = os.path.join(args.base_results_dir, '{}-P{}-T{}'.format(MODEL_TYPE, CV, TIMESTAMP))
     if not os.path.exists(args.results_dir):
         os.makedirs(args.results_dir)
 
     # load data
     X, y, INPUT_SHAPE = load_dataset(args.organism, args.coding)
 
-    #    (x_train, y_train), (x_test, y_test) = load_imdb()
+    # #    (x_train, y_train), (x_test, y_test) = load_imdb()
+    #
+    # kf = StratifiedShuffleSplit(n_splits=CV, random_state=34267)
+    # kf.get_n_splits(X, y)
+    #
+    # actual_partition = 0
+    #
+    # for train_index, test_index in kf.split(X, y):
+    #     actual_partition += 1
+    #     print('>>> Testing PARTITION {}'.format(actual_partition))
+    #     (x_train, y_train), (x_test, y_test) = load_partition(train_index, test_index, X, y)
+    #     print(x_train.shape)
+    #     print(y_train.shape)
+    #
+    #     # Define model
+    #     model = create_model(MODEL_TYPE, INPUT_SHAPE, N_CLASS, verbose=True)
+    #     #        plot_model(model, to_file=args.weights_dir + '/model.png', show_shapes=True)
+    #
+    #     # Train model and get weights
+    #     train(model=model, data=((x_train, y_train), (x_test, y_test)), args=args, actual_partition=actual_partition)
+    #     K.clear_session()
+    #
+    #     # Select best weights for this partition
+    #     (stats, weight_file) = get_best_weight(args, actual_partition)
+    #     print('Selected BEST: {} ({})'.format(weight_file, stats.Mcc))
+    #     #        model.save_weights(args.weights_dir + '/best_trained_model_partition_{}.h5'.format(actual_partition) )
+    #     #        print('Best Trained model for partition {} saved to \'%s/best_trained_model_partition_{}.h5\''.format(actual_partition, args.weights_dir, actual_partition))
+    #
+    #     # Allocate results of best weights for this partition
+    #     allocate_stats(stats)
+    #
+    #     # break
 
-    kf = StratifiedShuffleSplit(n_splits=CV, random_state=34267)
-    kf.get_n_splits(X, y)
-
-    actual_partition = 0
-
-    for train_index, test_index in kf.split(X, y):
-        actual_partition += 1
-        print('>>> Testing PARTITION {}'.format(actual_partition))
-        (x_train, y_train), (x_test, y_test) = load_partition(train_index, test_index, X, y)
-        print(x_train.shape)
-        print(y_train.shape)
-
-        # Define model
-        model = create_model(MODEL_TYPE, INPUT_SHAPE, N_CLASS, verbose=True)
-        #        plot_model(model, to_file=args.weights_dir + '/model.png', show_shapes=True)
-
-        # Train model and get weights
-        train(model=model, data=((x_train, y_train), (x_test, y_test)), args=args, actual_partition=actual_partition)
-        K.clear_session()
-
-        # Select best weights for this partition
-        (stats, weight_file) = get_best_weight(args, actual_partition)
-        print('Selected BEST: {} ({})'.format(weight_file, stats.Mcc))
-        #        model.save_weights(args.weights_dir + '/best_trained_model_partition_{}.h5'.format(actual_partition) )
-        #        print('Best Trained model for partition {} saved to \'%s/best_trained_model_partition_{}.h5\''.format(actual_partition, args.weights_dir, actual_partition))
-
-        # Allocate results of best weights for this partition
-        allocate_stats(stats)
-
-        # break
+    with mlflow.start_run(run_name =args.model):
+        set_log_params(args)
+        model, results = eval_model(X, y)
+        set_log_metrics(results)
 
     out_file_name = define_name(results)
     # serialize model to JSON
@@ -364,6 +401,11 @@ if __name__ == "__main__":
     print(aggregations)
     print(df2)
     print('+' * 50)
+
+    if not os.path.isfile(os.path.join(args.base_results_dir, 'results_summary.csv')):
+        df.to_csv(os.path.join(args.results_dir, out_file_name + '.csv'))
+    else:
+        df.to_csv(os.path.join(args.results_dir, out_file_name + '.csv'), header=False, mode='a')
 
     df.to_csv(os.path.join(args.results_dir, out_file_name + '.csv'))
     with open(os.path.join(args.results_dir, out_file_name + '.stats.json'), 'w') as fp:

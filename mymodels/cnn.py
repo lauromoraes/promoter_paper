@@ -257,8 +257,8 @@ def EMB_RES_BACILLUS_03(input_shape, n_class):
     emb_dim = 9
 
     pool_types = ('avg', 'max', False)
-    pool_type = 2
-    pool_size = 3
+    pool_type = 1
+    pool_size = 2
 
     # INPUT
     x = layers.Input(shape=input_shape)
