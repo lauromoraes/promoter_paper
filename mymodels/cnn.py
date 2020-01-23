@@ -1,4 +1,5 @@
 from keras import layers, models
+import keras_contrib
 from keras.initializers import glorot_normal, glorot_uniform
 from capsulelayers import CapsuleLayer, PrimaryCap, Length, Mask
 from keras.preprocessing import sequence
@@ -70,6 +71,7 @@ def EMB_CNN_BACILLUS_01(input_shape, n_class):
         kernel_size=15,
         padding='valid',
         activation='relu')(emb)
+
     block1 = layers.MaxPooling1D(
         pool_size=2,
         strides=2)(block1)
@@ -81,6 +83,7 @@ def EMB_CNN_BACILLUS_01(input_shape, n_class):
         strides=2,
         padding='valid',
         activation='relu')(block1)
+
     block2 = layers.MaxPooling1D(
         pool_size=2,
         strides=2)(block2)
@@ -397,5 +400,67 @@ def HOT_RES_BACILLUS_03(input_shape, n_class):
 
     # Create model object
     model = models.Model(inputs=[x], outputs=[outputs])
+
+    return model
+
+# python onehot_nets.py -o Bacillus --model EMB_ECODER_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+def EMB_ECODER_BACILLUS_01(input_shape, n_class):
+    # Input layer
+    x = layers.Input(shape=input_shape)
+
+    emb = Embedding(4, 9, input_length=input_shape[0])(x)
+
+    # Block 01
+    block1 = layers.Conv1D(
+        filters=128,
+        kernel_size=5,
+        padding='same',
+        strides=1)(emb)
+    block1 = keras_contrib.layers.InstanceNormalization()(block1)
+    block1 = layers.PReLU(shared_axes=[1])(block1)
+    block1 = layers.Dropout(rate=0.2)(block1)
+    block1 = layers.MaxPooling1D(pool_size=2)(block1)
+
+    # Block 02
+    block2 = layers.Conv1D(
+        filters=256,
+        kernel_size=11,
+        padding='same',
+        strides=1)(emb)
+    block2 = keras_contrib.layers.InstanceNormalization()(block1)
+    block2 = layers.PReLU(shared_axes=[1])(block2)
+    block2 = layers.Dropout(rate=0.2)(block2)
+    block2 = layers.MaxPooling1D(pool_size=2)(block2)
+
+    # # Block 03
+    # block3 = layers.Conv1D(
+    #     filters=256,
+    #     kernel_size=21,
+    #     padding='same',
+    #     strides=1)(emb)
+    # block3 = keras_contrib.layers.InstanceNormalization()(block2)
+    # block3 = layers.PReLU(shared_axes=[1])(block3)
+    # block3 = layers.Dropout(rate=0.2)(block3)
+    # block3 = layers.MaxPooling1D(pool_size=2)(block3)
+
+    # split for attention
+    attention_data = layers.Lambda(lambda x: x)(block2)
+    attention_softmax = layers.Lambda(lambda x: x)(block2)
+
+    # attention mechanism
+    attention_softmax = layers.Softmax()(attention_softmax)
+    multiply_layer = layers.Multiply()([attention_softmax, attention_data])
+
+    # Fully connected layers
+    dense_layer = layers.Dense(units=256, activation='sigmoid')(multiply_layer)
+    dense_layer = keras_contrib.layers.InstanceNormalization()(dense_layer)
+
+
+    # Classification layer
+    flatten_layer = layers.Flatten()(dense_layer)
+    output_layer = layers.Dense(units=n_class, activation='sigmoid')(flatten_layer)
+
+    # Create model object
+    model = models.Model(inputs=[x], outputs=[output_layer])
 
     return model

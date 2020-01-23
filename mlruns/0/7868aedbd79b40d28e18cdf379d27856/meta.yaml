@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/workspace/promoter_paper/mlruns/0/7868aedbd79b40d28e18cdf379d27856/artifacts
+end_time: 1578343851065
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: 7868aedbd79b40d28e18cdf379d27856
+run_uuid: 7868aedbd79b40d28e18cdf379d27856
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1578343761903
+status: 3
+tags: []
+user_id: lauro

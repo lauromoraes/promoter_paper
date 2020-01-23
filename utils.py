@@ -11,7 +11,7 @@ def get_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', default='CNN_01')
-    parser.add_argument('--coding', default='onehot')
+    parser.add_argument('--coding', default='onehot') # onehot, embedding
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--n_class', default=1, type=int)
     parser.add_argument('--epochs', default=300, type=int)
