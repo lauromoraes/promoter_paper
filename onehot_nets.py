@@ -52,6 +52,7 @@ def create_model(MODEL_TYPE_name, input_shape, n_class, verbose=False):
         MODEL_TYPE = getattr(module, MODEL_TYPE_name)(input_shape, n_class)
     if verbose:
         MODEL_TYPE.summary()
+    MODEL_TYPE.metrics_tensors = []
     return MODEL_TYPE
 
 
