@@ -7,6 +7,34 @@ from keras.layers import Conv2D, BatchNormalization, Activation, Add, MaxPooling
     Flatten, GlobalAveragePooling2D, LSTM, Embedding, GlobalAveragePooling1D, Conv1D, MaxPooling1D, TimeDistributed
 from keras import regularizers
 
+from tensorflow import keras
+from kerastuner import HyperModel
+
+class HotCNNHyperModel(HyperModel):
+    def __init__(self, input_shape, num_classes):
+        self.input_shape = input_shape
+        self.num_classes = num_classes
+
+    def build(self, hp):
+        emb_size = 4
+        k_sizes = [(emb_size, 3), (emb_size, 7), (emb_size, 15), (emb_size, 21)]
+        p_sizes = [(1, 2), (1, 3), (1, 5)]
+        model = keras.Sequential()
+        model.add(Conv2D(
+            filters=hp.Choice('conv01_num_filters', values=[32, 64, 128], default=128),
+            activation='relu',
+            kernel_size=hp.Choice('conv01_ksize', values=k_sizes, default=(4, 15))
+        ))
+        model.add(MaxPooling2D(
+            pool_size=hp.Choice('conv01_pool', values=p_sizes, default=(1, 2))
+        ))
+        model.add(Dropout(rate=hp.Float('drop', min_value=.0, max_value=.6, step=.1, default=.2)))
+        model.add(Flatten())
+        model.add(Dense(units=self.num_classes, activation='sigmoid'))
+
+        return model
+
+
 def HOTCNN01(input_shape, n_class):
     x = layers.Input(shape=input_shape)
     block1 = Conv2D(filters=128, kernel_size=(4, 15), padding='valid', activation='sigmoid')(x)

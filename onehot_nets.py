@@ -13,7 +13,6 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-np.random.seed(1337)
 
 from keras import layers, models, optimizers
 from keras import backend as K
@@ -21,6 +20,12 @@ from capsulelayers import CapsuleLayer, PrimaryCap, Length, Mask
 from keras.preprocessing import sequence
 from keras.utils.vis_utils import plot_model
 from sklearn.model_selection import StratifiedShuffleSplit
+
+from tensorflow import random as tf_random
+
+
+np.random.seed(1337)
+tf_random.set_random_seed(2)
 
 from metrics import margin_loss
 
