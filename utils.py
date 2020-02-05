@@ -36,6 +36,41 @@ def get_args():
     args = parser.parse_args()
     return args
 
+
+def load_dataset(organism, coding_type='onehot', k=1, nrange=None):
+    from .ml_data import SequenceNucsData, SequenceNucHotvector, SequenceMotifHot
+
+    print('Load organism: {}'.format(organism))
+    npath, ppath = './fasta/{}_neg.fa'.format(organism), './fasta/{}_pos.fa'.format(organism)
+    print(npath, ppath)
+
+    if coding_type == 'onehot':
+        samples = SequenceNucHotvector(npath, ppath)
+        X = samples.getX().astype('int32')
+        y = samples.getY().astype('int32')
+    elif coding_type == 'embedding':
+        samples = SequenceNucsData(npath, ppath, k=k)
+        X = samples.getX().astype('int32')
+        y = samples.getY().astype('int32')
+
+    if nrange is not None and type(nrange) == tuple and len(nrange) == 2:
+        downstream = nrange[0]
+        upstream = nrange[1]
+        if len(X.shape) == 2:
+            if X.shape[1] == 81:
+                tss_pos = 59
+            elif X.shape[1] == 251:
+                tss_pos = 199
+            X = X[:, (tss_pos-downstream):(tss_pos+upstream)]
+        elif len(X.shape) == 3:
+
+    #    X = X.reshape(-1, 38, 79, 1).astype('float32')
+    #     ini = 59
+    # #    ini = 199
+    #     X = X[:, (ini-30):(ini+11)]
+    print('Input Shapes\nX: {} | y: {}'.format(X.shape, y.shape))
+    return X, y, X.shape[1:]
+
 def set_log_params(args):
     mlflow.log_param('cv', args.cv)
     mlflow.log_param('model', args.model)
