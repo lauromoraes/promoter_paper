@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from keras import layers, models, optimizers
 from keras import backend as K
@@ -70,20 +71,32 @@ def hypermodel_experiment(X, y):
 
         tuner.search(x_train[0], y_train, epochs=N_EPOCH_SEARCH, validation_split=0.1)
 
-        # Show a summary of the search
-        tuner.results_summary()
+        # # Show a summary of the search
+        # tuner.results_summary()
+        # # Retrieve the best model.
+        # best_model = tuner.get_best_models(num_models=1)[0]
+        # # Evaluate the best model.
+        # loss, accuracy = best_model.evaluate(x_test, y_test)
+        # print(' =' * 30)
+        # print('\tBest Model')
+        # print('\tLoss: {}'.format(loss))
+        # print('\tAcc: {}'.format(accuracy))
+        # print(' =' * 30)
 
-        # Retrieve the best model.
-        best_model = tuner.get_best_models(num_models=1)[0]
+        # Get the best hyperparameters from the search
+        params = tuner.get_best_hyperparameters()[0]
+        # Build the model using the best hyperparameters
+        model = tuner.hypermodel.build(params)
+        # Train the best fitting model
+        model.fit(X[0], y, epochs=20)
+        # Check the accuracy plots
+        hyperband_accuracy_df = pd.DataFrame(model.history.history)
+        hyperband_accuracy_df[['loss', 'accuracy']].plot()
+        plt.title('Loss & Accuracy Per EPOCH')
+        plt.xlabel('EPOCH')
+        plt.ylabel('Accruacy')
+        plt.show()
 
-        # Evaluate the best model.
-        loss, accuracy = best_model.evaluate(x_test, y_test)
-
-        print(' =' * 30)
-        print('\tBest Model')
-        print('\tLoss: {}'.format(loss))
-        print('\tAcc: {}'.format(accuracy))
-        print(' =' * 30)
 
 
 
