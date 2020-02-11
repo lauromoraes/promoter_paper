@@ -21,18 +21,21 @@ class HotCNNHyperModel(HyperModel):
 
     def build(self, hp):
         emb_size = 4
-        k_sizes = [(emb_size, 3), (emb_size, 7), (emb_size, 15), (emb_size, 21)]
-        p_sizes = [(1, 2), (1, 3), (1, 5)]
+        n_filters = hp.Choice('conv01_num_filters', values=[32, 64, 128], default=128)
+        k_size = hp.Choice('conv01_ksize', values=[3, 7, 15, 21], default=15)
+        p_size = hp.Choice('conv01_pool', values=[2, 3], default=2)
 
         model = keras.Sequential()
 
         model.add(Conv2D(
-            filters=hp.Choice('conv01_num_filters', values=[32, 64, 128], default=128),
+            filters=n_filters,
             activation='relu',
-            kernel_size=hp.Choice('conv01_ksize', values=k_sizes, default=(4, 15))
+            kernel_size=(k_size, 4),
+            padding='same'
         ))
         model.add(MaxPooling2D(
-            pool_size=hp.Choice('conv01_pool', values=p_sizes, default=(1, 2))
+            pool_size=(p_size, 1),
+            padding='same'
         ))
 
         model.add(Dropout(rate=hp.Float('drop', min_value=.0, max_value=.6, step=.1, default=.2)))

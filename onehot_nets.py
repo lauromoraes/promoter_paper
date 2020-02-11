@@ -25,7 +25,7 @@ from tensorflow import random as tf_random
 
 
 np.random.seed(1337)
-tf_random.set_random_seed(2)
+tf_random.set_seed(3)
 
 from metrics import margin_loss
 
