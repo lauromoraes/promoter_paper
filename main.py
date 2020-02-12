@@ -135,4 +135,4 @@ if __name__ == "__main__":
         print('\tShape of input {}:\t{}'.format(i, x.shape))
 
     # train_test_experiment()
-    # hypermodel_experiment(X, y)
+    hypermodel_experiment(X, y)
