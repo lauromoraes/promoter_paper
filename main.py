@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 from keras import layers, models, optimizers
 from keras import backend as K
+import tensorflow as tf
 from tensorflow import random as tf_random
 
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -18,7 +19,12 @@ from promoter_data import PromoterData
 
 # Set seeds
 np.random.seed(1337)
-tf_random.set_seed(3)
+
+if int(str(tf.__version__).split('.')[0]) >= 2:
+    tf_random.set_seed(3)
+else:
+    tf_random.set_random_seed(3)
+
 
 
 def train_test_experiment():
@@ -32,6 +38,7 @@ def train_test_experiment():
         train_index, test_index = partition
         (x_train, y_train), (x_test, y_test) = data.load_partition(train_index, test_index)
         print('Number of samples for:\n\tTrain:\t{}\n\tTest:\t{}'.format(x_train[0].shape[0], x_test[0].shape[0]))
+
 
 def hypermodel_experiment(X, y):
     from kerastuner.tuners import (RandomSearch, BayesianOptimization, Hyperband)
@@ -98,8 +105,6 @@ def hypermodel_experiment(X, y):
         plt.show()
 
 
-
-
 if __name__ == "__main__":
     # Define settings
     seed = 17
@@ -129,4 +134,4 @@ if __name__ == "__main__":
         print('\tShape of input {}:\t{}'.format(i, x.shape))
 
     # train_test_experiment()
-    hypermodel_experiment(X, y)
+    # hypermodel_experiment(X, y)
