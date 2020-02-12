@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from keras import layers, models, optimizers
 from keras import backend as K
 import tensorflow as tf
-from tensorflow import random as tf_random
 
 from sklearn.model_selection import StratifiedShuffleSplit
 
@@ -21,9 +20,11 @@ from promoter_data import PromoterData
 np.random.seed(1337)
 
 if int(str(tf.__version__).split('.')[0]) >= 2:
+    from tensorflow import random as tf_random
     tf_random.set_seed(3)
 else:
-    tf_random.set_random_seed(3)
+    from tensorflow import set_random_seed
+    set_random_seed(3)
 
 
 
