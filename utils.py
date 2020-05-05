@@ -63,6 +63,7 @@ def load_dataset(organism, coding_type='onehot', k=1, nrange=None):
                 tss_pos = 199
             X = X[:, (tss_pos-downstream):(tss_pos+upstream)]
         elif len(X.shape) == 3:
+            pass
 
     #    X = X.reshape(-1, 38, 79, 1).astype('float32')
     #     ini = 59

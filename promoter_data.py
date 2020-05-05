@@ -60,17 +60,19 @@ def tokenize_sequences(seqs, k=1, step=1):
     return tokens
 
 
-def get_kmer_to_int_enconder(k):
+def get_kmer_to_int_encoder(k):
     mers = get_all_possible_k_mers(k)
     label_encoder = LabelEncoder()
     label_encoder.fit(mers)
     return label_encoder
 
 
-def encode_kmers_to_int_sequences(seqs, k=1):
-    encoder = get_kmer_to_int_enconder(k)
-    new_seqs = np.vstack([encoder.transform(s) for s in seqs])
-    return new_seqs
+def encode_kmers_to_int_sequences(tokens, k=1):
+    encoder_opt = 'categorical'
+    encoder = get_kmer_to_int_encoder(k)
+    new_seqs = np.vstack([encoder.transform(s) for s in tokens])
+    new_seqs = np.expand_dims(new_seqs, axis=2)
+    return new_seqs, encoder_opt
 
 
 def get_kmer_to_onehot_enconder(k):
@@ -80,35 +82,38 @@ def get_kmer_to_onehot_enconder(k):
     return onehot_encoder
 
 
-def encode_kmers_to_onehot_sequences(seqs, k=1):
+def encode_kmers_to_onehot_sequences(tokens, k=1):
+    encoder_opt = 'onehot'
     encoder = get_kmer_to_onehot_enconder(k)
-    new_seqs = np.stack([encoder.transform(np.array(list(s)).reshape(-1, 1)) for s in seqs])
+    new_seqs = np.stack([encoder.transform(np.array(list(s)).reshape(-1, 1)) for s in tokens])
     new_seqs = np.expand_dims(new_seqs, axis=3)
-    return new_seqs
+    return new_seqs, encoder_opt
 
 
-def encode_dna_to_vec(tokens, k=1):
+def encode_word2vec(tokens, k=1):
+    encoder_opt = 'embbed'
     if not type(tokens) == list:
         tokens = tokens.tolist()
     model = Word2Vec(min_count=1, workers=4, size=10, window=3)
     model.build_vocab(sentences=tokens)
     model.train(sentences=tokens, total_examples=len(tokens), epochs=10)
-    seqs = np.array([model.wv.__getitem__(t) for t in tokens])
+    new_seqs = np.array([model.wv.__getitem__(t) for t in tokens])
     # print(seqs)
     # print(seqs.shape)
-    return seqs
+    return new_seqs, encoder_opt
 
 
-def encode_fastdna_to_vec(tokens, k=1):
+def encode_fastdna(tokens, k=1):
+    encoder_opt = 'embbed'
     if not type(tokens) == list:
         tokens = tokens.tolist()
     model = FastText(min_count=1, workers=4, size=10, window=3)
     model.build_vocab(sentences=tokens)
     model.train(sentences=tokens, total_examples=len(tokens), epochs=10)
-    seqs = np.array([model.wv.__getitem__(t) for t in tokens])
+    new_seqs = np.array([model.wv.__getitem__(t) for t in tokens])
     # print(seqs)
     # print(seqs.shape)
-    return seqs
+    return new_seqs, encoder_opt
 
 
 def get_y(neg_data, pos_data):
@@ -118,24 +123,27 @@ def get_y(neg_data, pos_data):
     return y
 
 
-def encode_tokens(tokens, encoder_type=0):
-    encoder_types = [encode_kmers_to_int_sequences, encode_kmers_to_onehot_sequences, encode_dna_to_vec,
-                     encode_fastdna_to_vec]
+def encode_tokens(tokens, encoder_type='label'):
+    encoders = ('label', 'onehot', 'dna2vec', 'fastdna')
+    encoder_functions = [
+        encode_kmers_to_int_sequences,
+        encode_kmers_to_onehot_sequences,
+        encode_word2vec,
+        encode_fastdna,
+    ]
     k = len(tokens[0][0])
-    seq = encoder_types[encoder_type](tokens, k=k)
-    return seq
-
-
-def encode_nucleotides_sequences(sequences, k=1, encoder_type=0):
-    tokens = tokenize_sequences(sequences, k=k)
-    new_sequences = encode_tokens(tokens, encoder_type=encoder_type)
-    return new_sequences
+    new_seq, encoder_opt = encoder_functions[encoders.index(encoder_type)](tokens, k=k)
+    print(type(new_seq))
+    add_dims = lambda x: np.expand_dims(x, len(x.shape))
+    while len(new_seq.shape) != 4:
+        new_seq = add_dims(new_seq)
+    print('new_seq.shape', new_seq.shape)
+    return new_seq.astype(float), encoder_opt
 
 
 class PromoterData(object):
     def __init__(self, fasta_path):
         self.fasta_path = os.path.join(*(os.path.split(fasta_path)))  # Normalize path for OS
-        self.k = 1
         self.org_name = None
         self.neg_path = None
         self.pos_path = None
@@ -144,16 +152,14 @@ class PromoterData(object):
         self.tss_position = None
         self.downstream = None
         self.upstream = None
-        self.tokens = None
         self.y = None
         self.X = None
+        self.data: DataChunk = None
+        self.tokens = None
 
-    def set_organism_sequences(self, org_name, slice_seqs=False, tss_position=None, downstream=None, upstream=None):
+    def set_organism_sequences(self, org_name):
         print(' -' * 30)
         self.org_name = org_name
-        self.tss_position = tss_position
-        self.downstream = downstream
-        self.upstream = upstream
 
         print('Setting paths for organism: {}'.format(org_name))
         self.neg_path, self.pos_path = set_org_paths(self.org_name, self.fasta_path)
@@ -173,24 +179,14 @@ class PromoterData(object):
         seqs_lenght = len(self.negative_sequences[0])
         print('\nLength of sequences: \t{}'.format(seqs_lenght))
 
-        if slice_seqs:
-            print('\nSlicing sequences with:\nTss = {} |\tUpstream = {} |\t Downstream = {}'.format(tss_position,
-                                                                                                    upstream,
-                                                                                                    downstream))
-            self.negative_sequences = slice_sequences(self.negative_sequences, tss_position, upstream, downstream)
-            self.positive_sequences = slice_sequences(self.positive_sequences, tss_position, upstream, downstream)
-            print('Length of sequences changed from {} to {}'.format(seqs_lenght, len(self.negative_sequences[0])))
-
-    def set_k(self, k=1):
-        self.k = k
-
-    def set_tokens(self, k=None):
-        if not k:
-            k = self.k
-        neg_tokens = tokenize_sequences(self.negative_sequences, k=k)
-        pos_tokens = tokenize_sequences(self.positive_sequences, k=k)
+    def set_tokens(self, k=None, slice_seq=None):
+        if slice_seq:
+            (_tss, _up, _down) = slice_seq
+        pos = self.negative_sequences if not slice_seq else slice_sequences(self.negative_sequences, _tss, _up, _down)
+        neg = self.positive_sequences if not slice_seq else slice_sequences(self.positive_sequences, _tss, _up, _down)
+        neg_tokens = tokenize_sequences(neg, k=k)
+        pos_tokens = tokenize_sequences(pos, k=k)
         tokens = np.vstack((neg_tokens, pos_tokens))
-        self.tokens = tokens
         return tokens
 
     def get_y(self):
@@ -198,19 +194,20 @@ class PromoterData(object):
         self.y = y
         return y
 
-    def encode_dataset(self, encoder_types=0, tokens=None):
-        X = list()
-        if not tokens:
-            tokens = self.set_tokens()
-        if type(encoder_types) == list or type(encoder_types) == tuple:
-            for encoder in encoder_types:
-                x = encode_tokens(tokens, encoder_type=encoder)
-                X.append(x)
-        elif type(encoder_types) == int:
-            x = encode_tokens(tokens, encoder_type=encoder_types)
-            X.append(x)
-        self.X = X
-        return X
+    def encode_dataset(self, _data=None):
+        self.data = _data
+        self.tokens = dict()
+        for d in self.data:
+            print(d)
+            _slice = d.get_slice()
+            _k = d.get_k()
+            if _slice not in self.tokens.keys():
+                self.tokens[_slice] = dict()
+            if _k not in self.tokens[_slice].keys():
+                self.tokens[_slice][_k] = self.set_tokens(k=_k, slice_seq=_slice)
+            d.set_x(self.tokens[_slice][_k])
+        self.X = [x.get_x() for x in self.data]
+        return self.data
 
     def load_partition(self, split_index_A, split_index_B):
         X_split_A = list()
@@ -223,21 +220,50 @@ class PromoterData(object):
         return (X_split_A, y_split_A), (X_split_B, y_split_B)
 
 
+class DataChunk(object):
+    def __init__(self, k=1, encode='onehot', _slice=None):
+        self._k = k
+        self.encode = encode
+        self.num_words = self._k ** 4
+        self._x = None
+        self._data_type = None
+        self._tss_position = _slice[0] if _slice else None
+        self._upstream = _slice[1] if _slice else None
+        self._downstream = _slice[2] if _slice else None
+
+    def set_x(self, tokens):
+        self._x, self._data_type = encode_tokens(tokens, encoder_type=self.encode)
+
+    def get_x(self):
+        return self._x
+
+    def get_encode(self):
+        return self.encode
+
+    def get_data_type(self):
+        return self._data_type
+
+    def get_k(self):
+        return self._k
+
+    def get_slice(self):
+        return (self._tss_position, self._upstream, self._downstream) if self._tss_position else None
+
+    def shape(self):
+        return self._x.shape
+
+    def load_partition(self, split_index_a, split_index_b):
+        X_split_a = list()
+        X_split_b = list()
+        for _, x in enumerate(self._x):
+            X_split_a.append(x[split_index_a])
+            X_split_b.append(x[split_index_b])
+        y_split_a = self.y[split_index_a]
+        y_split_b = self.y[split_index_b]
+        return (X_split_a, y_split_a), (X_split_b, y_split_b)
+
+
 if __name__ == "__main__":
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-
-    sns.set(style="ticks", color_codes=True)
-
-    organism = 'Bacillus'
-    k = 3
-    tss_pos = 59
-    downstream = 20
-    upstream = 20
-    data = PromoterData('./fasta')
-    data.set_organism_sequences(organism, slice_seqs=True, tss_position=tss_pos, downstream=downstream,
-                                upstream=upstream)
-    K = data.encode_dataset(encoder_types=0)
-
-    print(' -' * 30)
-    print('\t>>> END <<<')
+    # import seaborn as sns
+    # import matplotlib.pyplot as plt
+    pass

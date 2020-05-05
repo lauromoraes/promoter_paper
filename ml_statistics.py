@@ -40,37 +40,34 @@ class BaseStatistics(object):
     
     def setPrec(self):
         # Precision
-        try:
-            self.Prec = float(self.tp)/(self.tp+self.fp)
-        except:
-            self.Prec = 0.0
+        d = float(self.tp+self.fp)
+        self.Prec = float(self.tp)/d if d != .0 else .0
     
     def setSn(self):
         # True positive rate - Recall
-        self.Sn = float(self.tp) / (self.tp + self.fn)
+        d = float(self.tp + self.fn)
+        self.Sn = float(self.tp) / d if d != .0 else .0
     
     def setSp(self):
         # True negative rate
-        self.Sp = float(self.tn) / (self.tn + self.fp)
+        d = float(self.tn + self.fp)
+        self.Sp = float(self.tn) / d if d != .0 else .0
     
     def setAcc(self):
         # Accuracy
-        self.Acc = float(self.tp+self.tn) / (self.tn+self.tp+self.fn+self.fp)
+        d = float(self.tn+self.tp+self.fn+self.fp)
+        self.Acc = float(self.tp+self.tn) / d if d != .0 else .0
     
     def setF1(self):
         # F1-measure
-        try:
-            self.F1 = 2*float(self.Prec*self.Sn)/(self.Prec+self.Sn)
-        except:
-            self.F1 = 0.0
+        d = float(self.Prec+self.Sn)
+        self.F1 = 2 * float(self.Prec * self.Sn) / d if d != .0 else .0
     
     def setMcc(self):
         from math import sqrt
         # Matthews correlation coefficient
-        try:
-            self.Mcc = float((self.tp*self.tn)-(self.fp*self.fn))/sqrt((self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn))
-        except:
-            self.Mcc = 0.0
+        d = sqrt((self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn))
+        self.Mcc = float((self.tp * self.tn) - (self.fp * self.fn)) / d  if d != .0 else .0
     
     def __str__(self):
         sep = '================================================================='

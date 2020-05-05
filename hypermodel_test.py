@@ -1,11 +1,9 @@
 import numpy as np
 from kerastuner.tuners import (
-    RandomSearch,
-    BayesianOptimization,
     Hyperband
 )
 
-from .hypermodel import HotCNNHyperModel
+from mymodels.hypermodels import HotCNNHyperModel
 
 def hypermodel_exec(x_train, x_test, y_train, y_test):
     SEED = 17
