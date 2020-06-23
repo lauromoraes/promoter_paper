@@ -193,7 +193,8 @@ class ResNetHyperModel(HyperModel):
             input_shape_length = len(self.input_shapes[branch])
 
             # Define number of stacked blocks
-            n_blocks = hp.Int('branch-{}_num_blocks'.format(branch), 1, 3)
+            # n_blocks = hp.Int('branch-{}_num_blocks'.format(branch), 1, 3)
+            n_blocks = 1
             print('n_blocks', n_blocks)
             for _block in range(n_blocks):
 
@@ -296,3 +297,22 @@ class ResNetHyperModel(HyperModel):
                       )
 
         return model
+
+def resnet_block(x, filters, kernel_size=3, stride=1, conv_shortcut=True, name=None):
+    """A residual block.
+        # Arguments
+            x: input tensor.
+            filters: integer, filters of the bottleneck layer.
+            kernel_size: default 3, kernel size of the bottleneck layer.
+            stride: default 1, stride of the first layer.
+            conv_shortcut: default True, use convolution shortcut if True,
+                otherwise identity shortcut.
+            name: string, block label.
+        # Returns
+            Output tensor for the residual block.
+        """
+    if conv_shortcut is True:
+        shortcut = Conv2D(4 * filters, 1, strides=stride, name=name + '_0_conv')(x)
+        shortcut = BatchNormalization(epsilon=1.001e-5, name=name + '_0_bn')(shortcut)
+    else:
+        shortcut = x

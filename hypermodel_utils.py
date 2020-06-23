@@ -50,10 +50,18 @@ def load_args():
     print(args)
     return args
 
+
+def mlflow_set_logs(results, **kwargs):
+    for k, v in kwargs:
+        # print(k, v)
+        results[k].append(v)
+
+
 def get_results_table():
     headers = ('partition', 'mcc', 'f1', 'sn', 'sp', 'acc', 'prec', 'tp', 'fp', 'tn', 'fn')
     results = {x: [] for x in headers}
     return results
+
 
 def allocate_stats(results, stats, actual_partition):
     results['partition'].append(actual_partition)
@@ -69,6 +77,7 @@ def allocate_stats(results, stats, actual_partition):
     results['fn'].append(stats.fn)
     return results
 
+
 def mlflow_logs(args, hyperparams, results, model, idx):
     import mlflow
     import tensorflow as tf
@@ -79,8 +88,9 @@ def mlflow_logs(args, hyperparams, results, model, idx):
         set_log_metrics(results)
         plot_model_img = '{}-{}-{}.png'.format(args.model_type, args.timestamp, idx)
         tf.keras.utils.plot_model(model, to_file=plot_model_img, show_shapes=False, show_layer_names=True,
-    rankdir='TB', expand_nested=False, dpi=96)
+                                  rankdir='TB', expand_nested=False, dpi=96)
         mlflow.log_artifact(plot_model_img)
+
 
 def set_log_params(args):
     import mlflow
@@ -91,31 +101,38 @@ def set_log_params(args):
     mlflow.log_param('seeds', args.seeds)
     # mlflow.log_param('patience', args.patience)
 
+
 def set_log_hyperparams(hyperparams):
     import mlflow
     for k, v in hyperparams.items():
         mlflow.log_param(k, v)
 
+
 def set_log_metrics(results):
     import mlflow
     import numpy as np
-    mlflow.log_metric('mean_mcc', np.mean(results['mcc']))
-    mlflow.log_metric('std_mcc', np.std(results['mcc']))
 
-    mlflow.log_metric('mean_f1', np.mean(results['f1']))
-    mlflow.log_metric('std_f1', np.std(results['f1']))
+    metrics = ('mcc', 'f1', 'acc', 'prec', 'sn', 'sp')
+    for metric in metrics:
+        mlflow.log_metric('mean_{}'.format(metric), np.mean(results[metric]))
+        mlflow.log_metric('std_{}'.format(metric), np.std(results[metric]))
+        for idx, result in enumerate(results[metric]):
+            mlflow.log_metric('{}_{}'.format(metric, idx), result)
 
-    mlflow.log_metric('mean_acc', np.mean(results['acc']))
-    mlflow.log_metric('std_acc', np.std(results['acc']))
-
-    mlflow.log_metric('mean_prec', np.mean(results['prec']))
-    mlflow.log_metric('std_prec', np.std(results['prec']))
-
-    mlflow.log_metric('mean_sn', np.mean(results['sn']))
-    mlflow.log_metric('std_sn', np.std(results['sn']))
-
-    mlflow.log_metric('mean_sp', np.mean(results['sp']))
-    mlflow.log_metric('std_sp', np.std(results['sp']))
+    # mlflow.log_metric('mean_f1', np.mean(results['f1']))
+    # mlflow.log_metric('std_f1', np.std(results['f1']))
+    #
+    # mlflow.log_metric('mean_acc', np.mean(results['acc']))
+    # mlflow.log_metric('std_acc', np.std(results['acc']))
+    #
+    # mlflow.log_metric('mean_prec', np.mean(results['prec']))
+    # mlflow.log_metric('std_prec', np.std(results['prec']))
+    #
+    # mlflow.log_metric('mean_sn', np.mean(results['sn']))
+    # mlflow.log_metric('std_sn', np.std(results['sn']))
+    #
+    # mlflow.log_metric('mean_sp', np.mean(results['sp']))
+    # mlflow.log_metric('std_sp', np.std(results['sp']))
 
 
 def load_data_chunks(args):
@@ -128,6 +145,7 @@ def load_data_chunks(args):
             _slice=chunk['slice'])
         data_chunks.append(d)
     return data_chunks
+
 
 def load_partition(train_index, test_index, X, y):
     x_train = X[train_index, :]
@@ -154,9 +172,6 @@ def eval_model(X, y, args):
             print('{} Training with SEED {}'.format(s_idx, seed))
             weight_file_name = '{}-{}-partition_{}-seed_{}'.format(args.model_type, args.timestamp, partition_idx,
                                                                    s_idx) + '-epoch_{epoch:02d}-loss_{val_loss:.2f}.hdf5'
-
-
-
 
 
 def get_callbacks(args, partition_idx):

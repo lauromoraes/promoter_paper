@@ -18,6 +18,8 @@ import mlflow
 from promoter_data import PromoterData, DataChunk
 from my_generator import AugmentedGeneratorMultipleInputs
 
+import mymodels.parent_models as mymodels
+
 # Set seeds
 np.random.seed(1337)
 if int(str(tf.__version__).split('.')[0]) >= 2:
@@ -55,9 +57,14 @@ def test_model(model, x_test, y_test):
 
 
 def get_model(model_type='HotCNNHyperModel'):
-    import mymodels.hypermodels as module
-    print('Getting dynamic class: {}'.format(model_type))
-    dynamic_model = getattr(module, model_type)
+    if model_type.endswith('HyperModel'):
+        import mymodels.hypermodels as module
+        print('Getting dynamic class: {}'.format(model_type))
+        dynamic_model = getattr(module, model_type)
+    else:
+        import mymodels.cnn as module
+        print('Getting defined class: {}'.format(model_type))
+        dynamic_model = getattr(module, model_type)
     return dynamic_model
 
 
@@ -96,7 +103,7 @@ def hypermodel_tunning_parameters(data, y, args):
 
     kf = StratifiedShuffleSplit(n_splits=1, random_state=SEED, test_size=0.3)
     kf.get_n_splits(X, y)
-    print('\t>{} HYPERMODEL START {}'.format('>'*30, '<'*30))
+    print('\t>{} HYPERMODEL START {}'.format('>' * 30, '<' * 30))
     for i, partition in enumerate(kf.split(X[0], y)):
         print('>>> Testing PARTITION {}'.format(i))
         train_index, test_index = partition
@@ -144,13 +151,13 @@ def train_test(model, data, y, args):
 
     results = list()
 
-
     # Build the model using the best hyperparameters
     model.summary()
 
     kf = StratifiedShuffleSplit(n_splits=args.cv, random_state=args.seeds[0])
     kf.get_n_splits(X[0], y)
     cv_partition = 0
+    # Append header
     results.append(get_results_table())
 
     best_weights = [None for _ in range(args.cv)]
@@ -208,15 +215,16 @@ def train_test(model, data, y, args):
     model = tuner.hypermodel.build(t.hyperparameters)
     mlflow_logs(args, t.hyperparameters.values, results[idx], model, idx)
 
-        # # Train the best fitting model
-        # model.fit(X, y, epochs=FIT_MAX_EPOCHS)
-        # # Check the accuracy plots
-        # hyperband_accuracy_df = pd.DataFrame(model.history.history)
-        # hyperband_accuracy_df[['loss', 'accuracy']].plot()
-        # plt.title('Loss & Accuracy Per EPOCH')
-        # plt.xlabel('EPOCH')
-        # plt.ylabel('Accruacy')
-        # plt.show()
+    # # Train the best fitting model
+    # model.fit(X, y, epochs=FIT_MAX_EPOCHS)
+    # # Check the accuracy plots
+    # hyperband_accuracy_df = pd.DataFrame(model.history.history)
+    # hyperband_accuracy_df[['loss', 'accuracy']].plot()
+    # plt.title('Loss & Accuracy Per EPOCH')
+    # plt.xlabel('EPOCH')
+    # plt.ylabel('Accruacy')
+    # plt.show()
+
 
 def test_tuners(tuner, data, y, args):
     import os
@@ -276,23 +284,32 @@ def test_tuners(tuner, data, y, args):
 
                 callbacks[0] = C.ModelCheckpoint(weight_path, save_best_only=True, save_weights_only=True, verbose=1)
 
-                kf = StratifiedShuffleSplit(n_splits=1, random_state=seed, test_size=0.01)
+                kf = StratifiedShuffleSplit(n_splits=1, random_state=seed, test_size=0.05)
                 kf.get_n_splits(x_train, y_train)
                 for t_index, v_index in kf.split(x_train[0], y_train):
                     (xx_train, yy_train), val_data = data.load_partition(t_index, v_index)
-                    # model.fit(x=xx_train, y=yy_train, batch_size=args.batch_size, epochs=FIT_MAX_EPOCHS, validation_data=val_data, callbacks=callbacks, verbose=0)
+                    model.fit(x=xx_train, y=yy_train,
+                              batch_size=args.batch_size,
+                              epochs=FIT_MAX_EPOCHS,
+                              validation_data=val_data,
+                              callbacks=callbacks,
+                              class_weight={0: .2, 1: .8},
+                              verbose=0
+                              )
 
-                    train_datagen = AugmentedGeneratorMultipleInputs(xx_train, yy_train, args.batch_size)
-                    _steps_per_epoch = int(len(yy_train) / args.batch_size)
+                    # # Data Augmentation =================================================
+                    # train_datagen = AugmentedGeneratorMultipleInputs(xx_train, yy_train, args.batch_size)
+                    # _steps_per_epoch = int(len(yy_train) / args.batch_size)
+                    # print("_steps_per_epoch", _steps_per_epoch)
+                    # # model.fit_generator(train_datagen.flow(xx_train, yy_train, batch_size=args.batch_size),
+                    # model.fit_generator(train_datagen,
+                    #                     validation_data=val_data,
+                    #                     steps_per_epoch=_steps_per_epoch,
+                    #                     epochs=FIT_MAX_EPOCHS,
+                    #                     callbacks=callbacks,
+                    #                     verbose=1)
+                    # # ==================================================================
 
-                    print("_steps_per_epoch", _steps_per_epoch)
-                    # model.fit_generator(train_datagen.flow(xx_train, yy_train, batch_size=args.batch_size),
-                    model.fit_generator(train_datagen,
-                                        validation_data=val_data,
-                                        steps_per_epoch=_steps_per_epoch,
-                                        epochs=FIT_MAX_EPOCHS,
-                                        callbacks=callbacks,
-                                        verbose=1)
                 K.clear_session()
 
                 # # Test model fitted using seed validation set
@@ -312,7 +329,8 @@ def test_tuners(tuner, data, y, args):
         if not os.path.exists(folder_name):
             os.makedirs(folder_name)
         for cv in range(args.cv):
-            weight_name = '{}-{}-partition_{}-mcc_{:.4f}.hdf5'.format(MODEL_TYPE, TIMESTAMP, cv, results[idx]['mcc'][cv])
+            weight_name = '{}-{}-partition_{}-mcc_{:.4f}.hdf5'.format(MODEL_TYPE, TIMESTAMP, cv,
+                                                                      results[idx]['mcc'][cv])
             weight_path = os.path.join(folder_name, weight_name)
             model.set_weights(best_weights[cv])
             model.save_weights(weight_path)
@@ -412,5 +430,12 @@ if __name__ == "__main__":
         test_tuners(h_params, data, y, ARGS)
 
     else:
+        # Get dynamic model class
+        dynamic_model = get_model(model_type=ARGS.model_type)
+        # Instantiate object from dynamic model class
+        # model = dynamic_model(data.data, 1)
+        arc = mymodels.HotCNN(data.data, 1)
+        model = arc.build()
+        model.summary()
         pass
 

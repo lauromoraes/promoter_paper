@@ -89,7 +89,6 @@ def encode_kmers_to_onehot_sequences(tokens, k=1):
     new_seqs = np.expand_dims(new_seqs, axis=3)
     return new_seqs, encoder_opt
 
-
 def encode_word2vec(tokens, k=1):
     encoder_opt = 'embbed'
     if not type(tokens) == list:
@@ -104,12 +103,17 @@ def encode_word2vec(tokens, k=1):
 
 
 def encode_fastdna(tokens, k=1):
+    from utils import tsne_plot
     encoder_opt = 'embbed'
     if not type(tokens) == list:
         tokens = tokens.tolist()
-    model = FastText(min_count=1, workers=4, size=10, window=3)
+    model = FastText(min_count=1, workers=4, size=3, window=7)
     model.build_vocab(sentences=tokens)
-    model.train(sentences=tokens, total_examples=len(tokens), epochs=10)
+    model.train(sentences=tokens, total_examples=len(tokens), epochs=100)
+
+    # tsne_plot(model)
+    # raise Exception
+
     new_seqs = np.array([model.wv.__getitem__(t) for t in tokens])
     # print(seqs)
     # print(seqs.shape)
