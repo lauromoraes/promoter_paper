@@ -104,9 +104,9 @@ def train(model, data, args, actual_partition):
     else:
         loss_func = lossfuncs[1]
     # compile the model
-    seeds = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
-    for s in range(min(args.seeds, len(seeds))):
-        seed = seeds[s]
+    samples = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
+    for s in range(min(args.samples, len(samples))):
+        seed = samples[s]
         print('{} Train on SEED {}'.format(s, seed))
 
         weight_file_name = '{}-{}-partition_{}-seed_{}'.format(MODEL_TYPE, TIMESTAMP, actual_partition,

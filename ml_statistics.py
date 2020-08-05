@@ -13,7 +13,8 @@ class BaseStatistics(object):
     def __init__(self, y_true, y_pred):
         from sklearn.metrics import confusion_matrix
         from numpy import array
-        y_pred = array([y[0] for y in y_pred])
+        if len(y_pred.shape) == 2:
+            y_pred = array([y[0] for y in y_pred])
         y_pred_norm = y_pred > 0.5
         
         if self.print_hits:
@@ -36,6 +37,17 @@ class BaseStatistics(object):
         self.setAcc()
         self.setF1()
         self.setMcc()
+
+    def to_dict(self):
+        keys = ('tp', 'fp', 'tn', 'fn', 'Prec', 'Sn', 'Sp', 'Acc', 'F1', 'Mcc')
+        d = {k: getattr(self, k) for k in keys}
+        return d
+
+    def get_metrics_types(self):
+        return ['tp', 'fp', 'tn', 'fn', 'Prec', 'Sn', 'Sp', 'Acc', 'F1', 'Mcc']
+
+    def get_stats_types(self):
+        return ['Prec', 'Sn', 'Sp', 'Acc', 'F1', 'Mcc']
         
     
     def setPrec(self):

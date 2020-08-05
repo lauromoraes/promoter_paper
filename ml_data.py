@@ -346,7 +346,7 @@ class SequenceDinucProperties(BaseData):
         self.set_data()
 #        seqs = self.get_sequences_from_fasta(self.ppath)
 #        instances = motifs.create(seqs)
-#        instances.weblogo('test.png')
+#        instances.weblogo('get_test_stats.png')
         
     def set_motifs(self, ppath):
         from Bio import motifs

@@ -2,23 +2,24 @@ import os
 import argparse
 
 
-def get_args():
+def get_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config')
+    parser.add_argument('-o', '--organism', default='Bacillus',
+                        help="The organism used for get_test_stats. Generate auto path for fasta files. Should be specified when testing")
     parser.add_argument('--model_type', default=0, type=int)
-    parser.add_argument('--cv', default=2, type=int)
-    parser.add_argument('--epochs', default=100, type=int)
-    parser.add_argument('--early_stop', default=0, type=int)
-    parser.add_argument('--seeds', default=3, type=int)
+    parser.add_argument('--initial_lr', default=1e-3, type=float)
     parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--early_stop', default=0, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--cv', default=2, type=int)
+    parser.add_argument('--n_samples', default=3, type=int)
     parser.add_argument('--fasta_dir', default=os.path.join('.', 'fasta'))
     parser.add_argument('--weights_dir', default=os.path.join('.', 'weights'))
     parser.add_argument('--best_weights_dir', default=os.path.join('.', 'best_weights'))
     parser.add_argument('--base_results_dir', default=os.path.join('.', 'results'))
-    parser.add_argument('-o', '--organism', default='Bacillus',
-                        help="The organism used for test. Generate auto path for fasta files. Should be specified when testing")
     parser.add_argument('--debug', default=1, type=int)
-    return parser.parse_args()
+    parser.add_argument('--config')
+    return parser
 
 
 def get_yaml(args):
@@ -32,22 +33,24 @@ def get_yaml(args):
     return args
 
 
-def get_seeds(num_seeds=None):
-    seeds = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
-    if num_seeds and num_seeds < len(seeds):
-        return seeds[:num_seeds]
-    return seeds
+def get_samples_seeds(num_samples=None):
+    samples = [23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
+    if num_samples and num_samples < len(samples):
+        return samples[:num_samples]
+    return samples
 
 
-def load_args():
+def load_args(arg_str, verbose=False):
     from datetime import datetime
     import os
-    args = get_args()
+    parser = get_arg_parser()
+    args = parser.parse_args(arg_str.split())
     args = get_yaml(args)
     args.experiment_name = os.path.splitext(os.path.basename(args.config))[0]
     args.timestamp = datetime.now().strftime("%Y_%m_%d=%H_%M_%S")
-    args.seeds = get_seeds(num_seeds=args.seeds)
-    print(args)
+    args.samples = get_samples_seeds(num_samples=args.n_samples)
+    if verbose:
+        print(args)
     return args
 
 
@@ -56,6 +59,9 @@ def mlflow_set_logs(results, **kwargs):
         # print(k, v)
         results[k].append(v)
 
+
+def partition_results():
+    pass
 
 def get_results_table():
     headers = ('partition', 'mcc', 'f1', 'sn', 'sp', 'acc', 'prec', 'tp', 'fp', 'tn', 'fn')
@@ -98,7 +104,7 @@ def set_log_params(args):
     mlflow.log_param('model_type', args.model_type)
     mlflow.log_param('batch_size', args.batch_size)
     mlflow.log_param('epochs', args.epochs)
-    mlflow.log_param('seeds', args.seeds)
+    mlflow.log_param('samples', args.samples)
     # mlflow.log_param('patience', args.patience)
 
 
@@ -158,7 +164,7 @@ def load_partition(train_index, test_index, X, y):
 
 def eval_model(X, y, args):
     from sklearn.model_selection import StratifiedShuffleSplit
-    kf = StratifiedShuffleSplit(n_splits=args.cv, random_state=args.seeds[0])
+    kf = StratifiedShuffleSplit(n_splits=args.cv, random_state=args.samples[0])
     kf.get_n_splits(X, y)
 
     partition_idx = 0
@@ -168,16 +174,15 @@ def eval_model(X, y, args):
 
         calls = get_callbacks(args, partition_idx)
 
-        for s_idx, seed in enumerate(args.seeds):
+        for s_idx, seed in enumerate(args.samples):
             print('{} Training with SEED {}'.format(s_idx, seed))
             weight_file_name = '{}-{}-partition_{}-seed_{}'.format(args.model_type, args.timestamp, partition_idx,
                                                                    s_idx) + '-epoch_{epoch:02d}-loss_{val_loss:.2f}.hdf5'
 
 
 def get_callbacks(args, partition_idx):
-    import keras
-    import tensorflow.keras.callbacks as C
-
+    import tensorflow.keras.callbacks as bk
+    # from CustomEarlyStopping import CustomEarlyStopping
     model_type = args.model_type
     timestamp = args.timestamp
     early_stop = args.early_stop
@@ -186,12 +191,17 @@ def get_callbacks(args, partition_idx):
 
     callbacks = list()
     callbacks.append(None)  # Position for Checkpoint
-    callbacks.append(C.CSVLogger(args.weights_dir + '/log.csv'))
-    callbacks.append(C.TensorBoard(log_dir=t_name, histogram_freq=args.debug))
+    # CustomEarlyStopping(patience_loss=args.patience, patience_acc=10, threshold=.95)
+    callbacks.append(bk.CSVLogger(args.weights_dir + '/log.csv'))
+    # CustomEarlyStopping(patience_loss=10, threshold=0.95)
+    callbacks.append(bk.TensorBoard(log_dir=t_name, histogram_freq=args.debug))
+
     if early_stop > 0:
-        callbacks.append(C.EarlyStopping(monitor='val_loss', patience=early_stop, verbose=0))
+        # TODO - Test multiple EarlyStopping
+        callbacks.append(bk.EarlyStopping(monitor='val_loss', patience=early_stop, verbose=0))
+        # callbacks.append(bk.EarlyStopping(monitor='val_accuracy', patience=early_stop, verbose=0))
     callbacks.append(
-        C.ReduceLROnPlateau(monitor='val_loss', factor=.9, patience=10, min_lr=0.00001, cooldown=0, verbose=0))
+        bk.ReduceLROnPlateau(monitor='val_loss', factor=.9, patience=10, min_lr=0.00001, cooldown=0, verbose=0))
     # calls.append(C.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch)))
     # calls.append( C.LearningRateScheduler(schedule=lambda epoch: args.lr * math.cos(1+( (epoch-1 % (args.epochs/cycles)))/(args.epochs/cycles) ) ))
     #    calls.append( C.LearningRateScheduler(schedule=lambda epoch: 0.001 * np.exp(-epoch / 10.)) )

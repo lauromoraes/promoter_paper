@@ -1,7 +1,7 @@
 organism: Bacillus
 model_type: ResNetHyperModel
 cv: 5
-seeds: 5
+n_samples 5
 epochs: 300
 batch_size: 16
 fasta_dir: fasta

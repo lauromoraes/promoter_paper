@@ -15,7 +15,7 @@ def get_args():
     parser.add_argument('--n_class', default=1, type=int)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--cv', default=2, type=int)
-    parser.add_argument('--seeds', default=3, type=int)
+    parser.add_argument('--n_samples', default=3, type=int)
     parser.add_argument('--patience', default=5, type=int)
     parser.add_argument('--lr', default=0.001, type=float, help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float, help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
@@ -26,7 +26,7 @@ def get_args():
     parser.add_argument('--base_results_dir', default=os.path.join('.', 'results'))
     parser.add_argument('--is_training', default=1, type=int, help="Size of embedding vector. Should > 0.")
     parser.add_argument('--weights', default=None)
-    parser.add_argument('-o', '--organism', default=None, help="The organism used for test. Generate auto path for fasta files. Should be specified when testing")
+    parser.add_argument('-o', '--organism', default=None, help="The organism used for get_test_stats. Generate auto path for fasta files. Should be specified when testing")
 
     args = parser.parse_args()
     return args
@@ -72,7 +72,7 @@ def set_log_params(args):
     mlflow.log_param('model', args.model)
     mlflow.log_param('batch_size', args.batch_size)
     mlflow.log_param('epochs', args.epochs)
-    mlflow.log_param('seeds', args.seeds)
+    mlflow.log_param('samples', args.samples)
     mlflow.log_param('patience', args.patience)
     mlflow.log_param('lr', args.lr)
     mlflow.log_param('lr_decay', args.lr_decay)

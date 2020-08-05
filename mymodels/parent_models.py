@@ -21,7 +21,7 @@ from tensorflow.keras.layers import (
     Flatten,
     Dense,
 )
-
+from tensorflow.keras.optimizers import (Adam, Nadam, )
 from kerastuner import HyperModel
 
 
@@ -84,9 +84,9 @@ class BaseHyperModel(BaseModel, HyperModel):
         raise NotImplementedError()
 
 
-class HotCNN(BaseModel):
+class BaselineHotCNN(BaseModel):
     def __init__(self, data_list, num_classes):
-        super(HotCNN, self).__init__(data_list, num_classes)
+        super(BaselineHotCNN, self).__init__(data_list, num_classes)
 
     def build(self):
         input_tensor = self.setup_input()[0]
@@ -106,8 +106,8 @@ class HotCNN(BaseModel):
 
         # Create model object
         model = models.Model(inputs=self.inputs_tensors, outputs=self.outputs_tensors, name='Baseline_HotCNN_Bacillus')
-
         return model
+
 
 
 def main():

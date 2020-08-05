@@ -223,7 +223,6 @@ class PromoterData(object):
         y_split_B = self.y[split_index_B]
         return (X_split_A, y_split_A), (X_split_B, y_split_B)
 
-
 class DataChunk(object):
     def __init__(self, k=1, encode='onehot', _slice=None):
         self._k = k

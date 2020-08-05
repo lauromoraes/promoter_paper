@@ -42,7 +42,7 @@ def HOTCNN01(input_shape, n_class):
     return model
 
 
-# python onehot_nets.py -o Bacillus --model HOT_CNN_BACILLUS_01 --coding onehot --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model HOT_CNN_BACILLUS_01 --coding onehot --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def HOT_CNN_BACILLUS_01(input_shape, n_class):
     # Input layer
     x = Input(shape=input_shape)
@@ -82,7 +82,7 @@ def HOT_CNN_BACILLUS_01(input_shape, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model HOT_CNN_BACILLUS_01 --coding onehot --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model HOT_CNN_BACILLUS_01 --coding onehot --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def HOT_CNN_BACILLUS_02(data, n_class):
     input_shapes = list()
     input_types = list()
@@ -130,7 +130,7 @@ def HOT_CNN_BACILLUS_02(data, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model EMB_CNN_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model EMB_CNN_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def EMB_CNN_BACILLUS_01(input_shape, n_class):
     # Input layer
     x = Input(shape=input_shape)
@@ -211,7 +211,7 @@ def HOT_RES_BACILLUS_01(input_shape, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_clas
+# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_clas
 def EMB_RES_BACILLUS_01(input_shape, n_class):
     n_filters = 128
     # Input layer
@@ -257,7 +257,7 @@ def EMB_RES_BACILLUS_01(input_shape, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_02 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_02 --coding embedding --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def EMB_RES_BACILLUS_02(input_shape, n_class):
     n_filters = 128
     emb_dim = 9
@@ -326,7 +326,7 @@ def EMB_RES_BACILLUS_02(input_shape, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_03 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model EMB_RES_BACILLUS_03 --coding embedding --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def EMB_RES_BACILLUS_03(input_shape, n_class):
     n_filters = 128
     emb_dim = 9
@@ -475,7 +475,7 @@ def HOT_RES_BACILLUS_03(input_shape, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model EMB_ECODER_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model EMB_ECODER_BACILLUS_01 --coding embedding --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def EMB_ECODER_BACILLUS_01(data, n_class):
     input_shapes = list()
     input_types = list()
@@ -544,7 +544,7 @@ def EMB_ECODER_BACILLUS_01(data, n_class):
 
     return model
 
-# python onehot_nets.py -o Bacillus --model EMB_ECODER_BACILLUS_02 --coding embedding --epochs 300 --patience 0 --cv 5 --seeds 3 --n_class 1
+# python onehot_nets.py -o Bacillus --model EMB_ECODER_BACILLUS_02 --coding embedding --epochs 300 --patience 0 --cv 5 --n_samples 3 --n_class 1
 def EMB_ECODER_BACILLUS_02(input_shape, n_class):
     # Input layer
     x = Input(shape=input_shape)

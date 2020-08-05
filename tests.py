@@ -1,10 +1,26 @@
-from ml_data import (SequenceNucsData, SequenceNucHotvector)
+from pyspark.ml.feature import Tokenizer, RegexTokenizer
+from pyspark.sql.functions import col, udf
+from pyspark.sql.types import IntegerType
 
-organism = 'Bacillus'
-npath, ppath = './fasta/{}_neg.fa'.format(organism), './fasta/{}_pos.fa'.format(organism)
+from pyspark.sql import functions as sf
 
-s1 = SequenceNucHotvector(npath, ppath)
-s2 = SequenceNucsData(npath, ppath, k=2)
+sentenceDataFrame = spark.createDataFrame([
+    (0, "Hi I heard about Spark"),
+    (1, "I wish Java could use case classes"),
+    (2, "Logistic,regression,models,are,neat")
+], ["id", "sentence"])
 
-X1, y1 = s1.getX(), s1.getY()
-X2, y2 = s1.getX(), s1.getY()
+tokenizer = Tokenizer(inputCol="sentence", outputCol="words")
+
+regexTokenizer = RegexTokenizer(inputCol="sentence", outputCol="words", pattern="\\W")
+# alternatively, pattern="\\w+", gaps(False)
+
+countTokens = udf(lambda words: len(words), IntegerType())
+
+tokenized = tokenizer.transform(sentenceDataFrame)
+tokenized.select("sentence", "words")\
+    .withColumn("tokens", countTokens(col("words"))).show(truncate=False)
+
+regexTokenized = regexTokenizer.transform(sentenceDataFrame)
+regexTokenized.select("sentence", "words") \
+    .withColumn("tokens", countTokens(col("words"))).show(truncate=False)
