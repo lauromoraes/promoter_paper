@@ -221,6 +221,8 @@ class PromoterData(object):
             X_split_B.append(x[split_index_B])
         y_split_A = self.y[split_index_A]
         y_split_B = self.y[split_index_B]
+        print( (X_split_A, y_split_A), (X_split_B, y_split_B))
+        raise Exception
         return (X_split_A, y_split_A), (X_split_B, y_split_B)
 
 class DataChunk(object):

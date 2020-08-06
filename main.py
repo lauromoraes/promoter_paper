@@ -360,6 +360,7 @@ def train_test(model, data, y, args):
 
     # Cross validation loop
     for idx, (cv_train_index, cv_test_index) in enumerate(kf.split(X[0], y)):
+        # TODO split nucleotides strings, not matrix
         (x_train, y_train), (x_test, y_test) = data.load_partition(cv_train_index, cv_test_index)
         callbacks = get_callbacks(args, idx)
         best_cv_mcc = -10000.0
