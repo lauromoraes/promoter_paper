@@ -8,7 +8,6 @@ def get_args():
     # setting the hyper parameters
     import os
     import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', default='CNN_01')
     parser.add_argument('--coding', default='onehot') # onehot, embedding
@@ -16,13 +15,10 @@ def get_args():
     parser.add_argument('--n_class', default=1, type=int)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--cv', default=2, type=int)
-    parser.add_argument('--seeds', default=3, type=int)
+    parser.add_argument('--n_samples', default=3, type=int)
     parser.add_argument('--patience', default=5, type=int)
     parser.add_argument('--lr', default=0.001, type=float, help="Initial learning rate")
-    parser.add_argument('--lr_decay', default=0.9, type=float,
-                        help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
-
-
+    parser.add_argument('--lr_decay', default=0.9, type=float, help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
     #    parser.add_argument('--shift_fraction', default=0.0, type=float, help="Fraction of pixels to shift at most in each direction.")
     parser.add_argument('--debug', default=1, type=int)  # debug>0 will save weights by TensorBoard
     parser.add_argument('--weights_dir', default=os.path.join('.', 'weights'))
@@ -30,18 +26,53 @@ def get_args():
     parser.add_argument('--base_results_dir', default=os.path.join('.', 'results'))
     parser.add_argument('--is_training', default=1, type=int, help="Size of embedding vector. Should > 0.")
     parser.add_argument('--weights', default=None)
-    parser.add_argument('-o', '--organism', default=None,
-                        help="The organism used for test. Generate auto path for fasta files. Should be specified when testing")
+    parser.add_argument('-o', '--organism', default=None, help="The organism used for get_test_stats. Generate auto path for fasta files. Should be specified when testing")
 
     args = parser.parse_args()
     return args
+
+
+def load_dataset(organism, coding_type='onehot', k=1, nrange=None):
+    from .ml_data import SequenceNucsData, SequenceNucHotvector, SequenceMotifHot
+
+    print('Load organism: {}'.format(organism))
+    npath, ppath = './fasta/{}_neg.fa'.format(organism), './fasta/{}_pos.fa'.format(organism)
+    print(npath, ppath)
+
+    if coding_type == 'onehot':
+        samples = SequenceNucHotvector(npath, ppath)
+        X = samples.getX().astype('int32')
+        y = samples.getY().astype('int32')
+    elif coding_type == 'embedding':
+        samples = SequenceNucsData(npath, ppath, k=k)
+        X = samples.getX().astype('int32')
+        y = samples.getY().astype('int32')
+
+    if nrange is not None and type(nrange) == tuple and len(nrange) == 2:
+        downstream = nrange[0]
+        upstream = nrange[1]
+        if len(X.shape) == 2:
+            if X.shape[1] == 81:
+                tss_pos = 59
+            elif X.shape[1] == 251:
+                tss_pos = 199
+            X = X[:, (tss_pos-downstream):(tss_pos+upstream)]
+        elif len(X.shape) == 3:
+            pass
+
+    #    X = X.reshape(-1, 38, 79, 1).astype('float32')
+    #     ini = 59
+    # #    ini = 199
+    #     X = X[:, (ini-30):(ini+11)]
+    print('Input Shapes\nX: {} | y: {}'.format(X.shape, y.shape))
+    return X, y, X.shape[1:]
 
 def set_log_params(args):
     mlflow.log_param('cv', args.cv)
     mlflow.log_param('model', args.model)
     mlflow.log_param('batch_size', args.batch_size)
     mlflow.log_param('epochs', args.epochs)
-    mlflow.log_param('seeds', args.seeds)
+    mlflow.log_param('samples', args.samples)
     mlflow.log_param('patience', args.patience)
     mlflow.log_param('lr', args.lr)
     mlflow.log_param('lr_decay', args.lr_decay)
@@ -69,6 +100,64 @@ def set_log_metrics(results):
     # mlflow.log_metric('fp', results['fp'])
     # mlflow.log_metric('tn', results['tn'])
     # mlflow.log_metric('fn', results['fn'])
+
+
+def tsne_plot(model):
+    from sklearn.manifold import TSNE
+    "Creates and TSNE model and plots it"
+    labels = []
+    tokens = []
+
+    for word in model.wv.vocab:
+        tokens.append(model[word])
+        labels.append(word)
+
+    tsne_model = TSNE(perplexity=30, n_components=2, early_exaggeration=10, init='pca', n_iter=2500, random_state=23)
+    new_values = tsne_model.fit_transform(tokens)
+
+    x = []
+    y = []
+    for value in new_values:
+        x.append(value[0])
+        y.append(value[1])
+
+    plt.figure(figsize=(16, 16))
+    for i in range(len(x)):
+        plt.scatter(x[i], y[i])
+        plt.annotate(labels[i],
+                     xy=(x[i], y[i]),
+                     xytext=(5, 2),
+                     textcoords='offset points',
+                     ha='right',
+                     va='bottom')
+    plt.show()
+
+
+
+
+def mlflow_flush(args, train_test_cv, train_val_cv):
+    import mlflow
+    import tensorflow as tf
+    run_name = '{}_{}-{}'.format(args.model_type, train_test_cv, train_val_cv)
+    with mlflow.start_run(run_name=run_name):
+        pass
+
+def mlflow_set_logs_params(**kwargs):
+    import mlflow
+    for k, v in kwargs.items():
+        mlflow.log_param(k, v)
+
+def mlflow_set_logs(results, **kwargs):
+    for k, v in kwargs:
+        # print(k, v)
+        results[k].append(v)
+        with mlflow.start_run(run_name=run_name):
+            set_log_params(args)
+            set_log_hyperparams(hyperparams)
+            set_log_metrics(results)
+            plot_model_img = '{}-{}-{}.png'.format(args.model_type, args.timestamp, idx)
+            tf.keras.utils.plot_model(model, to_file=plot_model_img, show_shapes=False, show_layer_names=True, rankdir='TB', expand_nested=False, dpi=96)
+            mlflow.log_artifact(plot_model_img)
 
 def plot_log(filename, show=True):
     # load data

@@ -1,0 +1,24 @@
+organism: Bacillus
+model_type: ResNetHyperModel
+cv: 5
+n_samples: 5
+epochs: 300
+batch_size: 16
+fasta_dir: fasta
+weights_dir: weights
+best_weights_dir: best_weights
+base_results_dir: results
+debug: 1
+data:
+#  - k: 1
+#    encode: label
+#    slice: [59, 59, 20]
+#  - k: 1
+#    encode: dna2vec
+#    slice: [59, 59, 20]
+  - k: 1
+    encode: fastdna
+    slice: [59, 59, 20]
+hypermodel:
+  execution_per_trial: 3
+  hyperband_max_epochs: 30

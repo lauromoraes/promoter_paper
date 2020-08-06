@@ -13,7 +13,8 @@ class BaseStatistics(object):
     def __init__(self, y_true, y_pred):
         from sklearn.metrics import confusion_matrix
         from numpy import array
-        y_pred = array([y[0] for y in y_pred])
+        if len(y_pred.shape) == 2:
+            y_pred = array([y[0] for y in y_pred])
         y_pred_norm = y_pred > 0.5
         
         if self.print_hits:
@@ -36,41 +37,49 @@ class BaseStatistics(object):
         self.setAcc()
         self.setF1()
         self.setMcc()
+
+    def to_dict(self):
+        keys = ('tp', 'fp', 'tn', 'fn', 'Prec', 'Sn', 'Sp', 'Acc', 'F1', 'Mcc')
+        d = {k: getattr(self, k) for k in keys}
+        return d
+
+    def get_metrics_types(self):
+        return ['tp', 'fp', 'tn', 'fn', 'Prec', 'Sn', 'Sp', 'Acc', 'F1', 'Mcc']
+
+    def get_stats_types(self):
+        return ['Prec', 'Sn', 'Sp', 'Acc', 'F1', 'Mcc']
         
     
     def setPrec(self):
         # Precision
-        try:
-            self.Prec = float(self.tp)/(self.tp+self.fp)
-        except:
-            self.Prec = 0.0
+        d = float(self.tp+self.fp)
+        self.Prec = float(self.tp)/d if d != .0 else .0
     
     def setSn(self):
         # True positive rate - Recall
-        self.Sn = float(self.tp) / (self.tp + self.fn)
+        d = float(self.tp + self.fn)
+        self.Sn = float(self.tp) / d if d != .0 else .0
     
     def setSp(self):
         # True negative rate
-        self.Sp = float(self.tn) / (self.tn + self.fp)
+        d = float(self.tn + self.fp)
+        self.Sp = float(self.tn) / d if d != .0 else .0
     
     def setAcc(self):
         # Accuracy
-        self.Acc = float(self.tp+self.tn) / (self.tn+self.tp+self.fn+self.fp)
+        d = float(self.tn+self.tp+self.fn+self.fp)
+        self.Acc = float(self.tp+self.tn) / d if d != .0 else .0
     
     def setF1(self):
         # F1-measure
-        try:
-            self.F1 = 2*float(self.Prec*self.Sn)/(self.Prec+self.Sn)
-        except:
-            self.F1 = 0.0
+        d = float(self.Prec+self.Sn)
+        self.F1 = 2 * float(self.Prec * self.Sn) / d if d != .0 else .0
     
     def setMcc(self):
         from math import sqrt
         # Matthews correlation coefficient
-        try:
-            self.Mcc = float((self.tp*self.tn)-(self.fp*self.fn))/sqrt((self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn))
-        except:
-            self.Mcc = 0.0
+        d = sqrt((self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn))
+        self.Mcc = float((self.tp * self.tn) - (self.fp * self.fn)) / d  if d != .0 else .0
     
     def __str__(self):
         sep = '================================================================='

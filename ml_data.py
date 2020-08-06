@@ -36,8 +36,10 @@ class BaseData(object):
         numChunks = ((len(seq)-k)/step)+1
         mers = list()
         i = 0
-        for i in range(0, int(numChunks*step-1), int(step)):
-            mers.append(seq[i:i+k])
+        for i in range(0, int(numChunks * step), int(step)):
+            s = seq[i:i+k]
+            mers.append(s)
+        print('mers', len(mers), mers)
         return mers
     
     def encode_sequences(self, seqs):
@@ -128,6 +130,7 @@ class BaseData(object):
         from sklearn.preprocessing import LabelEncoder
         nucs = ['G','A','C','T']
         tups = list(product(nucs, repeat=self.k))
+        print('!!!')
         data = array([''.join(x) for x in tups])
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(data)
@@ -196,6 +199,7 @@ class SequenceNucsData(BaseData):
         self.set_data()
     
     def encode_sequences(self, seqs):
+        print('ENCODE')
         from numpy import vstack
         return vstack([self.label_encoder.transform(self.get_kmers(seq, k=self.k)) for seq in seqs])
 #
@@ -342,7 +346,7 @@ class SequenceDinucProperties(BaseData):
         self.set_data()
 #        seqs = self.get_sequences_from_fasta(self.ppath)
 #        instances = motifs.create(seqs)
-#        instances.weblogo('test.png')
+#        instances.weblogo('get_test_stats.png')
         
     def set_motifs(self, ppath):
         from Bio import motifs

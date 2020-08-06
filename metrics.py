@@ -82,7 +82,7 @@ def f1(y_true, y_pred):
 # =========================================================================
 def margin_loss(y_true, y_pred):
     """
-    Margin loss for Eq.(4). When y_true[i, :] contains not just one `1`, this loss should work too. Not test it.
+    Margin loss for Eq.(4). When y_true[i, :] contains not just one `1`, this loss should work too. Not get_test_stats it.
     :param y_true: [None, n_classes]
     :param y_pred: [None, num_capsule]
     :return: a scalar loss value.

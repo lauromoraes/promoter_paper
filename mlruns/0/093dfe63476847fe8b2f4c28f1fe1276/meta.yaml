@@ -2,7 +2,7 @@ artifact_uri: file:///D:/workspace/promoter_paper/mlruns/0/093dfe63476847fe8b2f4
 end_time: 1578344763274
 entry_point_name: ''
 experiment_id: '0'
-lifecycle_stage: active
+lifecycle_stage: deleted
 name: ''
 run_id: 093dfe63476847fe8b2f4c28f1fe1276
 run_uuid: 093dfe63476847fe8b2f4c28f1fe1276
