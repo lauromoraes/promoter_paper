@@ -1,10 +1,10 @@
 organism: Bacillus
 model_type: HOT_CNN_BACILLUS_02
-early_stop: 11
-batch_size: 128
-epochs: 150
-cv: 3
-n_samples: 2
+early_stop: 30
+batch_size: 16
+epochs: 300
+cv: 10
+n_samples: 10
 fasta_dir: fasta
 weights_dir: weights
 best_weights_dir: best_weights

@@ -202,7 +202,6 @@ class PromoterData(object):
         self.data = _data
         self.tokens = dict()
         for d in self.data:
-            print(d)
             _slice = d.get_slice()
             _k = d.get_k()
             if _slice not in self.tokens.keys():
@@ -221,8 +220,8 @@ class PromoterData(object):
             X_split_B.append(x[split_index_B])
         y_split_A = self.y[split_index_A]
         y_split_B = self.y[split_index_B]
-        print( (X_split_A, y_split_A), (X_split_B, y_split_B))
-        raise Exception
+        print((X_split_A, y_split_A), (X_split_B, y_split_B))
+        # raise Exception
         return (X_split_A, y_split_A), (X_split_B, y_split_B)
 
 class DataChunk(object):
